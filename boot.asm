@@ -25,32 +25,30 @@ call update_cursor
 
 mov si , msg_loading
 call print_string
-
 ;now we need to load the next sector oh my god its fucking complicated 
 mov ah, 0x02        ; BIOS read sectors
-mov al, 4           ; number of sectors to read
+mov al, 1       ; number of sectors to read
 mov dl, 0x80        ; boot drive
 mov ch, 0           ; cylinder
 mov dh, 0           ; head
 mov cl, 2  
-
-
-; Destination = 0x0000:0x1000 (physical 0x1000)
+; Destination = 0x10000x0000: (physical 0x10000)
 mov bx, 0x1000
 mov es, bx
 xor bx , bx
 int 0x13
 
+
 jc disk_load_fail
 
 
-jmp $
+jmp 0x1000:0000
+
 ; whatever needs to be printed should be inside register ->si , it prints till 0 occur 
 print_string:
     push ax
     push es
     push di
-    
     mov ax, 0xB800
     mov es, ax
     mov di, [cursor_pos]    ; Load current cursor position
@@ -58,11 +56,17 @@ print_string:
     mov ah, 0x02
 .next_char:
     lodsb                   ; Load byte from DS:SI into AL and increment SI by one FUCK RISC
-    test al, al
-    jz .done
+    cmp al , 0
+    je .done
+    cmp al , 10
+    je .handleNewLine
     stosw                   ; Write AX to ES:DI and increment DI by 2
     jmp .next_char
-    
+.handleNewLine:
+    call newline
+    mov di , [cursor_pos]
+    shl di , 1
+    jmp .next_char
 .done: 
     shr di , 1
     mov [cursor_pos], di
@@ -71,7 +75,8 @@ print_string:
     pop di
     pop es
     pop ax
-    ret
+
+ret
 
 
 newline:
@@ -128,13 +133,17 @@ update_cursor:
 disk_load_fail:
     mov si , disk_read_error_msg
     call print_string
+    jmp $
+
+
+    
 disk_read_error_msg db "There is an error in reading the Disk Sector",0
-msg_loading db "Loading Stage 2...", 0
+msg_loading db "Loading",10,"Stage 2",10,"...", 0
 msg_success db "Stage 2 loaded successfully!", 0
-cursor_pos dw 0
+cursor_pos dw 10
 
 
 times 510 - ($ - $$) db 0
 dw 0xAA55
 ;this is little endian format which is used in x86 architecture.. 
-;which means the Least Significant Byte is stored first. .. to make calculations on numbers easy.lets just try to boot it first
+;which means the Least Significant Byte is stored first. .. to make calculations on numbers easy.
