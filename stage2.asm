@@ -1,105 +1,85 @@
 
 [org 0x10000]
-; this is the exact adress of cursor_pos label from boot.asm okay 
-;if anything changes in boot.asm this address can also change okay
-mov ax, [0x7d0b] 
+
+cursor_pos dw 0
+;*****DO NOT REMOVE THESE LINES ******
+;Actually I dont know why this make things dont break i will figure it out sometime soon
+;***** I DONT KNOW WHY THIS THING MAKE 32 BIT MODE STABLE;
 push cs 
 pop ds
 
-mov word[cursor_pos] , ax
-call update_cursor
-mov si , msgg
-call print_string
+cli            ; disable interrupts
+call EnableA20
+lgdt [gdt_descriptor]    ; load GDT register with start address of Global Descriptor Table
+mov eax ,cr0    ;Enable 32 bit CPU intructions
+or eax , 1
+mov cr0 , eax
+
+jmp dword 0x08:PModeMain    ;Make a far jump with 0x08 so that is <0000000000000100> this makes  now CPU does >>3 and now its 1 so it will load the 1st entry which is code Descriptor
+
+mov ax, 0xB800
+mov es, ax
+xor di, di
+mov cx, 2000
+mov ax, 0x0720
+rep stosw
+
+;update the cursor position
+mov word [cursor_pos], 0 ;
 jmp $
 
+EnableA20:
+    in al , 0x92
+    or al  , 2
+    out 0x92 , al
+    ret
 
-print_string:
-    push ax
-    push es
-    push di
-    mov ax, 0xB800
+gdtinfo:
+gdt_start:
+
+gdt_null:  
+    dq 0x0000000000000000 ;Null desciptor
+
+gdt_code:                       ; selector = 0x08 (00-07 bytes are null )
+    dw 0xFFFF                  ; limit low
+    dw 0x0000                  ; base low
+    db 0x00                    ; base middle
+    db 10011010b               ; access byte
+                                ; P=1 DPL=0 S=1 Type=1010 (exec/read)
+    db 11001111b               ; flags + limit high
+                                ; G=1 D=1 L=0 AVL=0
+    db 0x00                    ; base high
+
+gdt_data:                       ; selector = 0x10
+    dw 0xFFFF
+    dw 0x0000
+    db 0x00
+    db 10010010b               ; data read/write
+    db 11001111b
+    db 0x00
+
+gdt_end:
+
+gdt_descriptor:
+    dw gdt_end - gdt_start - 1
+    dd gdt_start
+[bits 32]
+PModeMain:
+    mov ax, 0x10      ; data selector
+    ;Load other segments and stabilize the CPU for 32 bit Mode
+    mov ds, ax
     mov es, ax
-    mov di, [cursor_pos]    ; Load current cursor position
-    shl di , 1 ; cursor pos is store as Cell No.
-    mov ah, 0x02
-.next_char:
-    lodsb                   ; Load byte from DS:SI into AL and increment SI by one FUCK RISC
-    cmp al , 0
-    je .done
-    cmp al , 10
-    je .handleNewLine
-    stosw                   ; Write AX to ES:DI and increment DI by 2
-    jmp .next_char
-.handleNewLine:
-    call newline
-    mov di , [cursor_pos]
-    shl di , 1
-    jmp .next_char
-.done: 
-    shr di , 1
-    mov [cursor_pos], di
-     
-    call update_cursor
-    pop di
-    pop es
-    pop ax
-
-ret
-
-
-newline:
-    push ax
-    push bx
-    push dx
-    
-    ; Calculate next line position (in cells)
-    mov ax, [cursor_pos]
-    xor dx, dx
-    mov bx, 80              ; 80 characters per line
-    div bx                  ; AX = line number, DX = column
-    
-    ; Move to next line: (line_number + 1) * 80
-    inc ax
-    mul bx                  ; AX = next line offset (in cells)
-    mov [cursor_pos], ax    ; Save new cursor position
-    
-    ; Update hardware cursor
-    call update_cursor
-    
-    pop dx
-    pop bx
-    pop ax
-    ret
-
-update_cursor:
-    push ax
-    push bx
-    push dx
-
-    mov bx ,  [cursor_pos]
-    ;set the lower bits
-    mov dx , 0x3D4 ;adress of CRTC index register
-    mov al , 0x0F
-    out dx , al
-
-    inc dx      ;address of CRTC data register
-    mov al , bl
-    out dx , al
-
-    dec dx
-    mov al, 0x0E
-    out dx, al
-    inc dx
-    mov al, bh
-    out dx, al
-
-    pop dx
-    pop bx
-    pop ax
-    
-    ret
-
-
-msgg db "Entered Stage2" , 0
-cursor_pos dw 10
-times 512 - ($ - $$) db 0
+    mov ss, ax
+    mov edi, 0xB8000
+    mov ax, 0x0720
+    mov [edi], ax
+    add edi, 2
+    mov [edi], ax
+    add edi, 2
+    mov [edi], ax
+    add edi, 2
+    mov [edi], ax
+    add edi, 2
+    mov [edi], ax
+    ;Stable 32 bit mode in CPU
+    jmp $
