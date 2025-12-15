@@ -1,0 +1,38 @@
+# Object files
+*.o
+*.obj
+
+# Executables
+*.exe
+*.bin
+
+# Disk images
+*.img
+*.iso
+
+# List files
+*.lst
+
+# Log files
+*.log
+qemu.log
+
+# Editor temporary files
+*~
+*.swp
+*.swo
+
+# IDE specific files
+.vscode/
+.idea/
+*.sln
+*.vcxproj*
+*.user
+
+# Build directories
+build/
+bin/
+
+# System files
+.DS_Store
+Thumbs.db
