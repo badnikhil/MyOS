@@ -4,7 +4,8 @@
 [org 0x7C00]
 ;this basically means write adresses relative to the given org
 ;as we are the OS and there is no one we can rely on we need to do everything ourselves.. there is no syscall because OS handles syscall
-
+mov si , msg_bl_loaded
+call print_string
 ; print to the VGA .. because we do not have any OS to do it for US . we are the OS
 ;now we need to use the VGA and the memory for VGA is at B8000 , we are in 16 bit real mode so we can only use max 16 bits meaning B800 
 ;put that in es(Extra Segment) and use di as offset ********IT IS FIXED THAT WE USE DI REGISTER AS OFFSET TO ES AND USE AX REGISTER TO GIVE ES A ADdRESS *********
@@ -23,12 +24,11 @@ rep stosw  ;this means move contents of rax into es:di cx times okay
 mov word [cursor_pos], 0 ;
 call update_cursor
 
-mov si , msg_loading
-call print_string
+
 ;now we need to load the next sector oh my god its fucking complicated 
 mov ah, 0x02        ; BIOS read sectors
 mov al, 1       ; number of sectors to read
-mov dl, 0x80        ; boot drive
+mov dl, 0x80       ; boot drive
 mov ch, 0           ; cylinder
 mov dh, 0           ; head
 mov cl, 2  
@@ -37,10 +37,18 @@ mov bx, 0x1000
 mov es, bx
 xor bx , bx
 int 0x13
+jc disk_load_fail;who cares? write IVT yourself .yes the interrupt vector table.
 
 
-jc disk_load_fail
+call newline
+mov si , msg_success
+call print_string
 
+call newline
+mov si , msg_for_key_press
+call print_string
+mov ah, 0
+int 16h
 
 jmp 0x1000:0000
 
@@ -55,7 +63,7 @@ print_string:
     shl di , 1 ; cursor pos is store as Cell No.
     mov ah, 0x02
 .next_char:
-    lodsb                   ; Load byte from DS:SI into AL and increment SI by one FUCK RISC
+    lodsb                   ; Load byte from DS:SI into AL and increment SI by one FUCK CISC
     cmp al , 0
     je .done
     cmp al , 10
@@ -136,10 +144,11 @@ disk_load_fail:
     jmp $
 
 
-    
+
 disk_read_error_msg db "There is an error in reading the Disk Sector",0
-msg_loading db "Loading",10,"Stage 2",10,"...", 0
-msg_success db "Stage 2 loaded successfully!", 0
+msg_bl_loaded db "Bootloader loaded successfully", 0
+msg_success db "Loaded Disk sectors successfully", 0
+msg_for_key_press db "Press any key on your keyboard to jump to the OS binary",0
 cursor_pos dw 10
 
 
