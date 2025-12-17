@@ -9,18 +9,18 @@ clear_screen:
     mov ax, 0x0720         ; space + attribute
     mov ecx, 2000          ; number of cells
 
-.clear:
-    mov word [edi], ax
-    add edi, 2
-    dec ecx
-    jnz .clear
+    .clear:
+        mov word [edi], ax
+        add edi, 2
+        dec ecx
+        jnz .clear
 
-mov word [0x10000], 0
-call update_cursor
-pop ecx
-pop edi
-pop eax
-ret
+    mov word [0x10000], 0
+    call update_cursor
+    pop ecx
+    pop edi
+    pop eax
+    ret
 
 
 
@@ -31,26 +31,26 @@ print_string:
     shl edi , 1 ; cursor pos is store as Cell No.
     add edi , 0xB8000
     mov ah, 0x02
-.next_char:
-    mov al , byte [esi]
-    inc esi 
-    cmp al , 0
-    je .done
-    cmp al , 10
-    je .handleNewLine
-    mov [edi] , ax
-    add edi , 2
-    jmp .next_char
-.handleNewLine:
-    call newline
-    movzx edi , word [0x10000]
-    shl edi , 1
-    add edi , 0xB8000
-    jmp .next_char
-.done: 
-    sub edi , 0xB8000
-    shr edi , 1    
-    mov word [0x10000], di
+    .next_char:
+        mov al , byte [esi]
+        inc esi 
+        cmp al , 0
+        je .done
+        cmp al , 10
+        je .handleNewLine
+        mov [edi] , ax
+        add edi , 2
+        jmp .next_char
+    .handleNewLine:
+        call newline
+        movzx edi , word [0x10000]
+        shl edi , 1
+        add edi , 0xB8000
+        jmp .next_char
+    .done: 
+        sub edi , 0xB8000
+        shr edi , 1    
+        mov word [0x10000], di
      
     call update_cursor
     pop edi
