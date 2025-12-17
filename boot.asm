@@ -28,7 +28,7 @@ call print_string
 
 ;now we need to load the next sector oh my god its fucking complicated 
 mov ah, 0x02        ; BIOS read sectors
-mov al, 5       ; number of sectors to read
+mov al, 8       ; number of sectors to read
 mov dl, 0x80       ; boot drive
 mov ch, 0           ; cylinder
 mov dh, 0           ; head
