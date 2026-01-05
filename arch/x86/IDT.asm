@@ -1,3 +1,6 @@
+
+extern interrupt_handler
+
 [bits 32]
 ;THIS FILE CONSISTS OF IDT , ISRs AND THE ENTRIES(GATES)
 
@@ -126,6 +129,8 @@ load_idt:
     add_interrupt_gate_in_IDT 46
     mov eax , HWI_Slave_ISR
     add_interrupt_gate_in_IDT 47
+
+    
     lidt [idt_descriptor]
     ret
 
@@ -133,9 +138,10 @@ load_idt:
 ; WILL UPDATE THESE ON A GOOD DAY . DEFINITELY NOT TODAY
 
 DE_ISR:        ; 0  Divide Error
-    mov esi, DE_msg
-    call print_string
-    jmp $
+    pushad
+    push 1
+    call interrupt_handler
+    iret
 
 DB_ISR:        ; 1  Debug
     mov esi, DB_msg
@@ -273,6 +279,35 @@ Timer_IRQ_ISR:
     out 0x20, al
     pop esi
     iret
+Keyboard_Stub:
+    ; ---- segment registers ----
+    push gs
+    push fs
+    push es
+    push ds
+
+    ; ---- general purpose registers ----
+    pushad
+    ; pushad order (top → bottom):
+    ; edi esi ebp esp ebx edx ecx eax
+
+    ; ---- interrupt metadata ----
+    push dword 33          ; idt_vector (IRQ1 → 33)
+    push dword 0           ; err_code (IRQs don't have one)
+
+    ; ---- call C handler ----
+    call handle_interrupt
+    add esp, 8             ; pop idt_vector + err_code
+
+    ; ---- restore registers ----
+    popad
+
+    pop ds
+    pop es
+    pop fs
+    pop gs
+
+    iret
 
 Keyboard_IRQ_ISR:       ; IRQ1 → vector 33
     push eax
@@ -290,7 +325,9 @@ Keyboard_IRQ_ISR:       ; IRQ1 → vector 33
 
     pop esi
     pop eax
-    iret
+    ret
+
+
 Timer_IRQ_msg db "......",10,0
 HWI_msg db "Unhandled IRQ",10,0
 KBD_IRQ_msg db "Keyboard Key clicked",10,0

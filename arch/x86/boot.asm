@@ -197,7 +197,7 @@ gdt_descriptor:
     dd gdt_start
 [bits 32]
 Load_Kernel:
-  mov ax, 0x10      ; data selector
+     mov ax, 0x10      ; data selector
     ;Load other segments and stabilize the CPU for 32 bit Mode
     mov ds, ax
     mov es, ax
@@ -205,6 +205,8 @@ Load_Kernel:
     mov esp , 0x9FC00 ;this is the last safe memory after EBDTA Extended BIOS Data Area.
 
     jmp 0x10000
+
+
 
 times 510 - ($ - $$) db 0
 dw 0xAA55

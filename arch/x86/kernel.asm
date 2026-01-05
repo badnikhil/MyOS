@@ -1,6 +1,5 @@
-
-[org 0x10000]
 [bits 32]
+_start:
     call clear_screen
     call update_cursor
     mov esi , msg
@@ -17,5 +16,3 @@ msg db "Entered 32 bit protected mode Successfully",10,0
 %include"IDT.asm"
 %include "utils.asm"
 %include "pic.asm"
-
-
