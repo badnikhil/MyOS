@@ -1,0 +1,10 @@
+#!/bin/sh
+
+nasm -f bin '/home/badnikhil/Desktop/asm/OS/arch/x86/boot.asm' -o build/boot.bin
+
+nasm -f elf32 -I/home/badnikhil/Desktop/asm/OS/arch/x86/ arch/x86/kernel.asm -o build/kernel.o
+
+gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/interrupt_handler.c    -o build/interrupt_handler.o
+    
+
+ld -m elf_i386 -nostdlib --oformat binary    -Ttext 0x10000  build/kernel.o build/interrupt_handler.o    -o build/kernel.bin

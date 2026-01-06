@@ -1,4 +1,5 @@
-;whatever needs to be printed should be inside register ->esi , it prints till 0 occur 
+ 
+global print_char
 [bits 32]
 clear_screen:
     push eax
@@ -22,7 +23,7 @@ clear_screen:
     pop eax
     ret
 
-
+;whatever needs to be printed should be inside register ->esi , it prints till 0 occur
 
 print_string:
     push eax
@@ -57,6 +58,33 @@ print_string:
     pop eax
 
 ret
+;whatever needs to be printed should be inside register ->esi , it prints till 0 occur
+print_char:
+    push ebp
+    mov ebp, esp
+
+    push eax
+    push edi
+
+    mov eax, [ebp + 8]   ; integer argument
+    mov ah, 0x02
+
+    movzx edi, word [0x10000]
+    shl edi, 1
+    add edi, 0xB8000
+
+    stosw
+
+    sub edi, 0xB8000
+    shr edi, 1
+    mov word [0x10000], di
+
+    call update_cursor
+
+    pop edi
+    pop eax
+    pop ebp
+    ret
 
 
 newline:

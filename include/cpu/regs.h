@@ -1,14 +1,11 @@
 #pragma once
-#include "../types.h"
-
+#include <types.h>
 struct regs {
-    u32 gs, fs, es, ds;
+    u32 eax, ecx, edx, ebx,
+        esp_dummy, ebp, esi, edi;
 
-    u32 edi, esi, ebp, esp_dummy,
-             ebx, edx, ecx, eax;
-
+    u32 ds, es, fs, gs;
     u32 idt_vector;
     u32 err_code;
-
-    u32 eip, cs, eflags, useresp, ss;
+    u32 eip, cs, eflags;
 };

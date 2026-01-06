@@ -1,6 +1,6 @@
-
-extern interrupt_handler
-
+; External function declarations
+extern handle_interrupt
+global Keyboard_IRQ_ISR
 [bits 32]
 ;THIS FILE CONSISTS OF IDT , ISRs AND THE ENTRIES(GATES)
 
@@ -99,7 +99,7 @@ load_idt:
     ;from 32 - 39 - Master PIC IQRs
     mov eax, Timer_IRQ_ISR         ;IRQ 0  (Timer)
     add_interrupt_gate_in_IDT 32
-    mov eax, Keyboard_IRQ_ISR
+    mov eax, Keyboard_Stub
     add_interrupt_gate_in_IDT 33    ;IRQ 1 (Keyboard)
     mov eax, HWI_Master_ISR
     add_interrupt_gate_in_IDT 34
@@ -140,7 +140,6 @@ load_idt:
 DE_ISR:        ; 0  Divide Error
     pushad
     push 1
-    call interrupt_handler
     iret
 
 DB_ISR:        ; 1  Debug
@@ -271,15 +270,7 @@ HWI_Slave_ISR:              ;40-47 The Slave PIC IRQs
     pop esi
 
     iret
-
-;IRQ0 is for timer actually it ticks 18 times per second ..so cant test other interrupts
-Timer_IRQ_ISR:
-    push esi
-    mov al, 0x20        ;EOI
-    out 0x20, al
-    pop esi
-    iret
-Keyboard_Stub:
+Timer_Stub:
     ; ---- segment registers ----
     push gs
     push fs
@@ -292,7 +283,7 @@ Keyboard_Stub:
     ; edi esi ebp esp ebx edx ecx eax
 
     ; ---- interrupt metadata ----
-    push dword 33          ; idt_vector (IRQ1 → 33)
+    push dword 32          ; idt_vector (IRQ1 → 33)
     push dword 0           ; err_code (IRQs don't have one)
 
     ; ---- call C handler ----
@@ -308,6 +299,18 @@ Keyboard_Stub:
     pop gs
 
     iret
+
+;IRQ0 is for timer actually it ticks 18 times per second ..so cant test other interrupts
+Timer_IRQ_ISR:
+    push esi
+    mov al, 0x20        ;EOI
+    out 0x20, al
+    pop esi
+    iret
+Keyboard_Stub:
+    push dword 0
+    push dword 33
+    jmp common_entry
 
 Keyboard_IRQ_ISR:       ; IRQ1 → vector 33
     push eax
@@ -326,7 +329,6 @@ Keyboard_IRQ_ISR:       ; IRQ1 → vector 33
     pop esi
     pop eax
     ret
-
 
 Timer_IRQ_msg db "......",10,0
 HWI_msg db "Unhandled IRQ",10,0
@@ -352,3 +354,23 @@ AC_msg db "AC ISR called", 0
 MC_msg db "MC ISR called", 0
 XF_msg db "XF ISR called", 0
 VE_msg db "VE ISR called", 0
+
+common_entry:
+    push gs
+    push fs
+    push es
+    push ds
+
+    pushad
+    lea eax, [esp]     ; points to idt_vector
+    push eax
+    call handle_interrupt
+    add esp, 4             ; pop argument
+
+    popad
+    pop ds
+    pop es
+    pop fs
+    pop gs
+    add esp , 8
+    iret

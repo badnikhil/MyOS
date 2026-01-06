@@ -1,0 +1,1 @@
+cat build/boot.bin build/kernel.bin > build/myos.img
