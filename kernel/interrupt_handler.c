@@ -1,7 +1,6 @@
 #include <cpu/regs.h>
 
-extern void Keyboard_IRQ_ISR();
-extern void print_char(int c);
+extern void Keyboard_IRQ_ISR(); 
 
 void handle_keyboard_irq(void) {
     Keyboard_IRQ_ISR();
