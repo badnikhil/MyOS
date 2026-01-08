@@ -1,4 +1,5 @@
 #include<mm/frame.h>
+#include<Cutils/mystdio.h>
 // if the bit is 1 the frame is used otherwise not .
 // we use full 32 bit number meaning 32 bit frames equiavelnt to 64KBs (32 * 4 KB)
 static u32 *frame_bitmap;
@@ -28,9 +29,9 @@ static u32 first_free_frame(void) {
                 u32 frame = i * 32 + j;
                 if (frame < total_frames && !isFrameUsed(frame))
                     return frame;
+                }
             }
         }
-    }
     return (u32)-1;
     }
 void clear_bitmap(void) {
@@ -38,13 +39,13 @@ void clear_bitmap(void) {
 
     for (u32 i = 0; i < bitmap_size; i++) {
         frame_bitmap[i] = 0;
+        }
     }
-}
 
-void frameBitmap_init(u32 mem_size_bytes , u32 bitmap_address) {
+void frame_bitmap_init(u32 mem_size_bytes , u32 bitmap_address) {
     total_frames = mem_size_bytes / FRAME_SIZE;
     frame_bitmap = (u32 *)bitmap_address;
-    clearBitmap();
+    clear_bitmap();
 
     // Mark frame 0 as used (NULL protection) 
     set_frame(0);
@@ -53,14 +54,14 @@ void frameBitmap_init(u32 mem_size_bytes , u32 bitmap_address) {
 u32 allocate_frame(void) {
     u32 frame = first_free_frame();
     if (frame == (u32)-1)
-        panic("Out of physical memory!");
+        print_string("Out of physical memory!");
 
     set_frame(frame);
     return frame * FRAME_SIZE;
-}
+    }
 
 
 void free_frame(u32 phys_addr) {
     u32 frame = phys_addr / FRAME_SIZE;
     clear_frame(frame);
-}
+    }

@@ -4,8 +4,10 @@ nasm -f bin '/home/badnikhil/Desktop/asm/OS/arch/x86/boot.asm' -o build/boot.bin
 nasm -f elf32 -I/home/badnikhil/Desktop/asm/OS/arch/x86/ arch/x86/kernel.asm -o build/kernel.o
 
 gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/interrupt_handler.c -o build/interrupt_handler.o
-gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c mm/Paging.c -o build/Paging.o
+gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c mm/paging.c -o build/paging.o
 gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c Cutils/mystdio.c -o build/mystdio.o
-    
+gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c mm/frame.c -o build/frame.o
+gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/shell.c -o build/shell.o
+gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/syscalls.c -o build/syscalls.o    
 
-ld -m elf_i386 -nostdlib --oformat binary    -Ttext 0x10000  build/kernel.o build/interrupt_handler.o build/Paging.o build/mystdio.o -o build/kernel.bin
+ld -m elf_i386 -nostdlib --oformat binary    -Ttext 0x10000  build/kernel.o build/interrupt_handler.o build/paging.o build/mystdio.o build/frame.o build/shell.o build/syscalls.o -o build/kernel.bin

@@ -1,6 +1,7 @@
 ; External function declarations
 extern handle_interrupt
 global Keyboard_IRQ_ISR
+extern handle_PF
 [bits 32]
 ;THIS FILE CONSISTS OF IDT , ISRs AND THE ENTRIES(GATES)
 
@@ -20,6 +21,14 @@ global Keyboard_IRQ_ISR
     mov word[idt_start + %1 * 8 +6] ,ax ;the higher 16 bits of ISR adress
 %endmacro
 
+%macro add_syscall_gate 1
+    mov word [idt_start + %1*8 + 0], ax
+    mov word [idt_start + %1*8 + 2], 0x08
+    mov byte [idt_start + %1*8 + 4], 0
+    mov byte [idt_start + %1*8 + 5], 11101110b   ; the GPL should be 3 this is for user space okay
+    shr eax, 16
+    mov word [idt_start + %1*8 + 6], ax
+%endmacro
 
 ;----- IDT DEFINITIONS-----
 idt_start:
@@ -129,7 +138,9 @@ load_idt:
     add_interrupt_gate_in_IDT 46
     mov eax , HWI_Slave_ISR
     add_interrupt_gate_in_IDT 47
-
+    ;to align with linux ADB and hope this OS works like linux and i can run binaries meant for linux on this OS we are using 0x80.yeah
+    mov eax, syscall_isr
+    add_syscall_gate 128
     
     lidt [idt_descriptor]
     ret
@@ -145,7 +156,8 @@ DE_ISR:        ; 0  Divide Error
 DB_ISR:        ; 1  Debug
     push DB_msg
     call print_string
-    jmp $
+    add esp , 4
+    iret
 
 NMI_ISR:       ; 2  NMI
     push NMI_msg
@@ -215,8 +227,14 @@ GP_ISR:        ; 13 General Protection (error code)
 PF_ISR:        ; 14 Page Fault (error code)
     push PF_msg
     call print_string
-    add esp, 4
-    jmp $
+    add esp , 4
+    mov eax , cr2
+    push eax
+    call handle_PF
+    add esp , 4
+    ; for error code
+    add esp , 4
+    iret
 
 RES15_ISR:     ; 15 Reserved
     push RES15_msg
@@ -270,6 +288,13 @@ HWI_Slave_ISR:              ;40-47 The Slave PIC IRQs
     pop esi
 
     iret
+
+syscall_isr:
+ push dword 0
+ push dword 128
+ jmp common_entry
+
+
 Timer_Stub:
     ; ---- segment registers ----
     push gs
@@ -325,7 +350,7 @@ Keyboard_IRQ_ISR:       ; IRQ1 → vector 33
     push KBD_IRQ_msg
     call print_string
     add esp , 4 
-.done
+.done:
     mov al, 0x20
     out 0x20, al        ; EOI to master PIC
 
@@ -350,7 +375,7 @@ TS_msg db "TS ISR called", 0
 NP_msg db "NP ISR called", 0
 SS_msg db "SS ISR called", 0
 GP_msg db "GP ISR called", 0
-PF_msg db "PF ISR called", 0
+PF_msg db "PF ISR called",10, 0
 RES15_msg db "RES15 ISR called", 0
 MF_msg db "MF ISR called", 0
 AC_msg db "AC ISR called", 0
@@ -365,7 +390,7 @@ common_entry:
     push ds
 
     pushad
-    lea eax, [esp]     ; points to idt_vector
+    lea eax, [esp]     
     push eax
     call handle_interrupt
     add esp, 4             ; pop argument

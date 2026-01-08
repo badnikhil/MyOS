@@ -4,12 +4,11 @@ extern InitPaging
 extern page_directory
 extern print_string
 extern clear_screen
+extern run_shell
 global _start
 _start:
     ;Stable 32 bit mode in CPU
     call clear_screen
-    push msg
-    call print_string
     ;Initialize the PIC and load IDT entries
     call pic_init
     call load_idt
@@ -20,9 +19,8 @@ _start:
     or  eax, 0x80000000
     mov cr0, eax
     sti
-    jmp $
+    call run_shell
 
-msg db "Entered 32 bit protected mode Successfully",10,0
 
 %include "IDT.asm"
 %include "pic.asm"
