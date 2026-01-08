@@ -1,5 +1,6 @@
- 
-global print_char
+
+;DEPRECATED SUBROUTINES ALL UTILS ARE PORTED TO C IN Cutils/mystdio
+
 [bits 32]
 clear_screen:
     push eax
@@ -24,7 +25,6 @@ clear_screen:
     ret
 
 ;whatever needs to be printed should be inside register ->esi , it prints till 0 occur
-
 print_string:
     push eax
     push edi

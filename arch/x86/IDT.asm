@@ -143,109 +143,109 @@ DE_ISR:        ; 0  Divide Error
     iret
 
 DB_ISR:        ; 1  Debug
-    mov esi, DB_msg
+    push DB_msg
     call print_string
     jmp $
 
 NMI_ISR:       ; 2  NMI
-    mov esi, NMI_msg
+    push NMI_msg
     call print_string
     jmp $
 
 BP_ISR:        ; 3  Breakpoint
-    mov esi, BP_msg
+    push BP_msg
     call print_string
     jmp $
 
 OF_ISR:        ; 4  Overflow
-    mov esi, OF_msg
+    push OF_msg
     call print_string
     jmp $
 
 BR_ISR:        ; 5  BOUND Range Exceeded
-    mov esi, BR_msg
+    push BR_msg
     call print_string
     jmp $
 
 UD_ISR:        ; 6  Invalid Opcode
-    mov esi, UD_msg
+    push UD_msg
     call print_string
     jmp $
 
 NM_ISR:        ; 7  Device Not Available
-    mov esi, NM_msg
+    push NM_msg
     call print_string
     jmp $
 
 DF_ISR:        ; 8  Double Fault (error code)
-    mov esi, DF_msg
+    push DF_msg
     call print_string
     add esp, 4
     jmp $
 
 CSO_ISR:       ; 9  Coprocessor Segment Overrun (reserved)
-    mov esi, CSO_msg
+    push CSO_msg
     call print_string
     jmp $
 
 TS_ISR:        ; 10 Invalid TSS (error code)
-    mov esi, TS_msg
+    push TS_msg
     call print_string
     add esp, 4
     jmp $
 
 NP_ISR:        ; 11 Segment Not Present (error code)
-    mov esi, NP_msg
+    push NP_msg
     call print_string
     add esp, 4
     jmp $
 
 SS_ISR:        ; 12 Stack Segment Fault (error code)
-    mov esi, SS_msg
+    push SS_msg
     call print_string
     add esp, 4
     jmp $
 
 GP_ISR:        ; 13 General Protection (error code)
-    mov esi, GP_msg
+    push GP_msg
     call print_string
     add esp, 4
     jmp $
 
 PF_ISR:        ; 14 Page Fault (error code)
-    mov esi, PF_msg
+    push PF_msg
     call print_string
     add esp, 4
     jmp $
 
 RES15_ISR:     ; 15 Reserved
-    mov esi, RES15_msg
+    push RES15_msg
     call print_string
     jmp $
 
 MF_ISR:        ; 16 x87 Floating-Point Error
-    mov esi, MF_msg
+    push MF_msg
     call print_string
     jmp $
 
 AC_ISR:        ; 17 Alignment Check (error code)
-    mov esi, AC_msg
+    push AC_msg
     call print_string
     add esp, 4
     jmp $
 
 MC_ISR:        ; 18 Machine Check
-    mov esi, MC_msg
+    push MC_msg
     call print_string
     jmp $
 
 XF_ISR:        ; 19 SIMD Floating-Point Exception
-    mov esi, XF_msg
+    push XF_msg
     call print_string
     jmp $
 
 VE_ISR:        ; 20 Virtualization Exception
-    mov esi, VE_msg
+    push VE_msg
     call print_string
     jmp $
 
@@ -320,9 +320,12 @@ Keyboard_IRQ_ISR:       ; IRQ1 → vector 33
     ; now al have the scancode of which key was pressed
     ;will add scancode to ascii subroutine soon
 
-    mov esi, KBD_IRQ_msg
+    test al, 0x80        ; check break code
+    jnz .done  
+    push KBD_IRQ_msg
     call print_string
-
+    add esp , 4 
+.done
     mov al, 0x20
     out 0x20, al        ; EOI to master PIC
 
