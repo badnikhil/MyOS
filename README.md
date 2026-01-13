@@ -3,6 +3,10 @@
 A custom x86 operating system developed from scratch in Assembly language. This educational project is to dive into  low-level system programming concepts .
 For now the OS loads the GDT and  then jumps to the kernel.THe CPU is completely stable in 32 bit protected mode.The bootlodaer gurantees this.
 The kernel then write some data to VGA for debugging purposes and then loop stably.
+<img width="748" height="492" alt="Screenshot from 2026-01-09 01-12-20" src="https://github.com/user-attachments/assets/c745458e-d53f-4a8e-ac4e-878f9dca610d" />
+
+<img width="748" height="492" alt="image" src="https://github.com/user-attachments/assets/3db3a16b-4d15-46c6-a1e5-19a3345f87dd" />
+
 ## Project Structure
 
 - `boot.asm` - Bootloader code (first stage)
@@ -17,21 +21,13 @@ To build the OS, you'll need:
 ### Build Commands
 
 ```bash
-# Assemble the bootloader
-nasm -f bin boot.asm -o boot.bin -l boot.lst
-
-# Assemble the second stage
-nasm -f bin stage2.asm -o stage2.bin -l stage2.lst
-
-#write this data to a img file
-cat boot.bin stage2.bin > myos.img
-
+./build
 ```
 
 ## Running in QEMU
 
 ```bash
-qemu-system-x86_64 -drive format=raw,file=os.img
+./run
 ```
 
 ## Debugging
@@ -39,9 +35,5 @@ qemu-system-x86_64 -drive format=raw,file=os.img
 To debug with QEMU and GDB:
 
 ```bash
-# In one terminal
-qemu-system-x86_64 -s -S -drive format=raw,file=os.img
-
-# In another terminal
-gdb -ex "target remote localhost:1234" -ex "set architecture i8086" -ex "layout asm"
+./debug
 ```
