@@ -2,9 +2,9 @@
 #include<drivers/display.h>
 // 8x16 bitmap font
 // Each character = 16 rows, 8 pixels per row
-
+// consider this a rectangle/square acc to font size and it will be occupied by each character .
 u8 font8x16[128][16] = {
-    // ASCII 0–31 control chars → empty
+    // ASCII 0–31 control chars these are empty because idc
     [32] = {  // SPACE
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
         0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
