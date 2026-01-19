@@ -1,6 +1,6 @@
 #include <kernel/syscalls.h>
 #include <kernel/interrupt_handler.h>
-#include<Cutils/mystdio.h>
+#include<kernel/console.h>
 s32 read_syscall(u32  file_descriptor , u8 *buffer , u32 len){
     kbd_head = 0;
     kbd_tail = 0;

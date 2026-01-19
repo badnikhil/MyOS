@@ -1,5 +1,5 @@
 #include<mm/frame.h>
-#include<Cutils/mystdio.h>
+#include<kernel/console.h>
 // if the bit is 1 the frame is used otherwise not .
 // we use full 32 bit number meaning 32 bit frames equiavelnt to 64KBs (32 * 4 KB)
 static u32 *frame_bitmap;
@@ -54,7 +54,7 @@ void frame_bitmap_init(u32 mem_size_bytes , u32 bitmap_address) {
 u32 allocate_frame(void) {
     u32 frame = first_free_frame();
     if (frame == (u32)-1)
-        print_string("Out of physical memory!");
+        // print_string("Out of physical memory!");
 
     set_frame(frame);
     return frame * FRAME_SIZE;

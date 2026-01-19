@@ -33,12 +33,12 @@ extern handle_PF
 
 ;----- IDT DEFINITIONS-----
 idt_start:
-    times 256 dq 0 , 0
+    times 256 dq 0
 idt_end:
 
 idt_descriptor:
     dw idt_end - idt_start - 1
-    dq idt_start
+    dd idt_start
 
 
 ;----------CALL THIS TO LOAD THE IDT----------
@@ -148,194 +148,7 @@ load_idt:
 
 
 ; WILL UPDATE THESE ON A GOOD DAY . DEFINITELY NOT TODAY
-DE_ISR:        ; 0  Divide Error
-    pushad
-    push 1
-    iretq
 
-DB_ISR:        ; 1  Debug
-    push DB_msg
-    call print_string
-    add esp , 4
-    iretq
-
-NMI_ISR:       ; 2  NMI
-    push NMI_msg
-    call print_string
-    jmp $
-
-BP_ISR:        ; 3  Breakpoint
-    push BP_msg
-    call print_string
-    jmp $
-
-OF_ISR:        ; 4  Overflow
-    push OF_msg
-    call print_string
-    jmp $
-
-BR_ISR:        ; 5  BOUND Range Exceeded
-    push BR_msg
-    call print_string
-    jmp $
-
-UD_ISR:        ; 6  Invalid Opcode
-    push UD_msg
-    call print_string
-    jmp $
-
-NM_ISR:        ; 7  Device Not Available
-    push NM_msg
-    call print_string
-    jmp $
-
-DF_ISR:        ; 8  Double Fault (error code)
-    push DF_msg
-    call print_string
-    add esp, 4
-    jmp $
-
-CSO_ISR:       ; 9  Coprocessor Segment Overrun (reserved)
-    push CSO_msg
-    call print_string
-    jmp $
-
-TS_ISR:        ; 10 Invalid TSS (error code)
-    push TS_msg
-    call print_string
-    add esp, 4
-    jmp $
-
-NP_ISR:        ; 11 Segment Not Present (error code)
-    push NP_msg
-    call print_string
-    add esp, 4
-    jmp $
-
-SS_ISR:        ; 12 Stack Segment Fault (error code)
-    push SS_msg
-    call print_string
-    add esp, 4
-    jmp $
-
-GP_ISR:        ; 13 General Protection (error code)
-    push GP_msg
-    call print_string
-    add esp, 4
-    jmp $
-
-PF_ISR:        ; 14 Page Fault (error code)
-    push PF_msg
-    call print_string
-    add esp , 4
-    mov rax , cr2
-    push rax
-    call handle_PF
-    add esp , 4
-    ; for error code
-    add esp , 4
-    iretq
-
-RES15_ISR:     ; 15 Reserved
-    push RES15_msg
-    call print_string
-    jmp $
-
-MF_ISR:        ; 16 x87 Floating-Point Error
-    push MF_msg
-    call print_string
-    jmp $
-
-AC_ISR:        ; 17 Alignment Check (error code)
-    push AC_msg
-    call print_string
-    add esp, 4
-    jmp $
-
-MC_ISR:        ; 18 Machine Check
-    push MC_msg
-    call print_string
-    jmp $
-
-XF_ISR:        ; 19 SIMD Floating-Point Exception
-    push XF_msg
-    call print_string
-    jmp $
-
-VE_ISR:        ; 20 Virtualization Exception
-    push VE_msg
-    call print_string
-    jmp $
-
-HWI_Master_ISR:            ;32-39 The Master PIC IRQs
-    push rsi
-    mov rsi , HWI_msg 
-    call print_string
-    mov al, 0x20        ;EOI
-    out 0x20, al
-    pop rsi
-    iretq
-
-HWI_Slave_ISR:              ;40-47 The Slave PIC IRQs
-    push rsi
-    mov rsi , HWI_msg
-    call print_string
-
-
-    mov al, 0x20        ;EOI
-    out 0xA0, al        ;Slave
-    out 0x20, al        ;Master
-    pop rsi
-
-    iretq
-
-syscall_isr:
- push dword 0
- push dword 128
- jmp common_entry
-
-
-Timer_Stub:
-    ; ---- segment registers ----
-    push gs
-    push fs
-    push es
-    push ds
-
-    ; ---- general purpose registers ----
-    pushad
-    ; pushad order (top → bottom):
-    ; edi rsi ebp esp ebx edx ecx rax
-
-    ; ---- interrupt metadata ----
-    push dword 32          ; idt_vector (IRQ1 → 33)
-    push dword 0           ; err_code (IRQs don't have one)
-
-    ; ---- call C handler ----
-    call handle_interrupt
-    add esp, 8             ; pop idt_vector + err_code
-
-    ; ---- restore registers ----
-    popad
-
-    pop ds
-    pop es
-    pop fs
-    pop gs
-
-    iretq
-
-;IRQ0 is for timer actually it ticks 18 times per second ..so cant test other interrupts
-Timer_IRQ_ISR:
-    push rsi
-    mov al, 0x20        ;EOI
-    out 0x20, al
-    pop rsi
-    iretq
-Keyboard_Stub:
-    push dword 0
-    push dword 33
-    jmp common_entry
 
 
 Timer_IRQ_msg db "......",10,0
@@ -370,54 +183,17 @@ common_entry:
     push ds
 
     pushad
-    lea rax, [rsp]     
+    lea rax, [esp]     
     push rax
     call handle_interrupt
-    add rsp, 4             ; pop argument
+    add esp, 4             ; pop argument
 
     popad
     pop ds
     pop es
     pop fs
     pop gs
-    add rsp , 8
+    add esp , 8
     iretq
 print_string:
     ret
-
-
-pushad:
-    push rax
-    push rcx
-    push rdx
-    push rbx
-    push rbp  
-    push rsi
-    push rdi
-    push r8
-    push r9
-    push r10
-    push r11
-    push r12
-    push r13
-    push r14
-    push r15
-    ret
-
-
-popad:
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop r11
-    pop r10
-    pop r9
-    pop r8
-    pop rdi
-    pop rsi
-    pop rbp
-    pop rbx
-    pop rdx
-    pop rcx
-    pop rax

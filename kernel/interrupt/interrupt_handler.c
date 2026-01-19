@@ -1,8 +1,8 @@
 #include <cpu/regs.h>
-#include <Cutils/mystdio.h>
+#include <kernel/console.h>
 #include <mm/frame.h>
 #include <mm/paging.h>
-#include<Cutils/IO.h>
+#include<IO.h>
 #include<kernel/interrupt_handler.h>
 #include<kernel/syscalls.h>
 volatile char kbd_buffer[KBD_BUF_SIZE];
@@ -67,20 +67,21 @@ void handle_backspace(void){
     // move buffer head back
     kbd_head--;
 
-    remove_char();
+    // remove_char();
     }
 
 void handle_keyboard_irq(void) {
     // Keyboard_IRQ_ISR();
     u8 c = inb(0x60);
-    pic_send_eoi(1);    
+    pic_send_eoi(1);  
+    return ;  
     c = sc_to_ascii(c);
     // process_the_character(&c);
     if(c){
         if(c == '\b')
         handle_backspace();
         else {
-        print_char(c);
+        // print_char(c);
         kbd_buffer[kbd_head] = c;
         kbd_head = (kbd_head + 1) % KBD_BUF_SIZE;
            }
@@ -91,7 +92,7 @@ void handle_interrupt(struct regs *r) {
     // handle_keyboard_irq();
     switch(r->idt_vector){
         case 33 : handle_keyboard_irq();break;
-        case 128 : handle_syscall(r);
+        // case 128 : handle_syscall(r);
     }
  
     }

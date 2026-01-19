@@ -1,0 +1,17 @@
+gcc -I/usr/include/efi \
+-Iinclude/ \
+-fpic -ffreestanding -fno-stack-protector \
+-fno-stack-check -fshort-wchar -mno-red-zone \
+-c esp/EFI/BOOT/main.c -o esp/EFI/BOOT/main.o
+
+ ld   -shared   -Bsymbolic \
+  -T /usr/lib/elf_x86_64_efi.lds  \
+   /usr/lib/crt0-efi-x86_64.o   \
+   esp/EFI/BOOT/main.o   \
+   -L /usr/lib   -lgnuefi \
+     -lefi   -o esp/EFI/BOOT/main.so
+
+
+ objcopy -j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym  -j .rel \
+  -j .rela -j .rel.* -j .rela.* -j .reloc --target efi-app-x86_64 --subsystem=10 esp/EFI/BOOT/main.so esp/EFI/BOOT/BOOTX64.efi
+echo DONE

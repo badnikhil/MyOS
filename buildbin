@@ -1,13 +1,18 @@
 
-nasm -f bin '/home/badnikhil/Desktop/asm/OS/arch/x86/boot.asm' -o build/boot.bin
+nasm -f elf64 -I/home/badnikhil/Desktop/asm/OS/arch/x86/ arch/x86/kernel.asm -o build/kernel.o
 
-nasm -f elf32 -I/home/badnikhil/Desktop/asm/OS/arch/x86/ arch/x86/kernel.asm -o build/kernel.o
 
-gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/interrupt_handler.c -o build/interrupt_handler.o
-gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c mm/paging.c -o build/paging.o
-gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c Cutils/mystdio.c -o build/mystdio.o
-gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c mm/frame.c -o build/frame.o
-gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/shell.c -o build/shell.o
-gcc -m32 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/syscalls.c -o build/syscalls.o    
 
-ld -m elf_i386 -nostdlib --oformat binary    -Ttext 0x10000  build/kernel.o build/interrupt_handler.o build/paging.o build/mystdio.o build/frame.o build/shell.o build/syscalls.o -o build/kernel.bin
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/kernel.c -o build/kernelc.o
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/interrupt/interrupt_handler.c -o build/interrupt_handler.o
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/mm/paging.c -o build/paging.o
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/mm/frame.c -o build/frame.o
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/shell.c -o build/shell.o
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/syscall/syscalls.c -o build/syscalls.o  
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c drivers/display/framebuffer.c -o build/framebuffer.o
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c drivers/display/font.c -o build/font.o    
+
+ld -m elf_x86_64 -nostdlib --oformat binary -Ttext 0x100000 build/kernel.o build/kernelc.o  build/paging.o build/frame.o  build/framebuffer.o build/font.o -o esp/EFI/BOOT/kernel.bin 
+
+
+echo done

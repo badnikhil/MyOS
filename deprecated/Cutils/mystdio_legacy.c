@@ -1,3 +1,6 @@
+
+// These functions were meant for the legacy mode, But my laptop have no legacy support so these are deprecated.
+
 #include <Cutils/mystdio.h>
 #include <Cutils/IO.h>
 

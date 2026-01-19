@@ -36,3 +36,4 @@ bin/
 # System files
 .DS_Store
 Thumbs.db
+esp/
