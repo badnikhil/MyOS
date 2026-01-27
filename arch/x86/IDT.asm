@@ -1,3 +1,5 @@
+; we dont have a print function yet so its temporarily stored
+
 ; External function declarations
 extern handle_interrupt
 global Keyboard_IRQ_ISR

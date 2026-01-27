@@ -1,0 +1,1 @@
+sudo cp -r uefiboot/EFI/BOOT/BOOTX64.EFI uefiboot/EFI/BOOT/kernel.bin /boot/efi/EFI/myOS/
