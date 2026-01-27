@@ -4,10 +4,7 @@
 #include <mm/paging.h>
 #include<IO.h>
 #include<kernel/interrupt_handler.h>
-#include<kernel/syscalls.h>
-volatile char kbd_buffer[KBD_BUF_SIZE];
-volatile u32 kbd_head = 0;
-volatile u32 kbd_tail = 0;
+#include<kernel/tty.h>
 
 static const char scancode_table[128] = {
     0,  27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b',
@@ -60,35 +57,18 @@ char sc_to_ascii(u8 scancode) {
     else
         return scancode_table[scancode];
     }
-void handle_backspace(void){
-    if (kbd_head == 0)
-        return;   // nothing to delete
 
-    // move buffer head back
-    kbd_head--;
-
-    // remove_char();
-    }
 
 void handle_keyboard_irq(void) {
     // Keyboard_IRQ_ISR();
     u8 c = inb(0x60);
-    pic_send_eoi(1);  
-    return ;  
+    pic_send_eoi(1);   
     c = sc_to_ascii(c);
+    tty_feed(c);
     // process_the_character(&c);
-    if(c){
-        if(c == '\b')
-        handle_backspace();
-        else {
-        // print_char(c);
-        kbd_buffer[kbd_head] = c;
-        kbd_head = (kbd_head + 1) % KBD_BUF_SIZE;
-           }
-        }       
+
     }  
 void handle_interrupt(struct regs *r) {
-    // print_string("Hello world\n");
     // handle_keyboard_irq();
     switch(r->idt_vector){
         case 33 : handle_keyboard_irq();break;

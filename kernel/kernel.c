@@ -1,9 +1,10 @@
 #include<drivers/display.h>
 #include<bootinfo.h>
 #include<kernel/console.h>
+#include<kernel/tty.h>
 boot_info_t* g_boot_info;
 
-// The ultimate goal of  kernel is not messing with framebuffer it should do serious tasks 
+
 void kernel_main(){
     struct framebuffer fb;
     fb.base = g_boot_info->framebuffer.base;
@@ -12,8 +13,7 @@ void kernel_main(){
     fb.pitch = g_boot_info->framebuffer.pitch * 4;
     fb.width =   g_boot_info->framebuffer.width;
     console_init(&fb);
-    u8 string[] = "Heree\n it is\n";
-    print_string(string);
+    print_string("Here");
     while(1)
     {}
 }

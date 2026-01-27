@@ -1,5 +1,5 @@
 
-nasm -f elf64 -I/home/badnikhil/Desktop/asm/OS/arch/x86/ arch/x86/kernel.asm -o build/kernel.o
+nasm -f elf64 -I/home/nikhil/Desktop/asm/OS/arch/x86/ arch/x86/kernel.asm -o build/kernel.o
 
 
 
@@ -10,9 +10,10 @@ gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c k
 gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/shell.c -o build/shell.o
 gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/syscall/syscalls.c -o build/syscalls.o  
 gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c drivers/display/framebuffer.c -o build/framebuffer.o
-gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/console/console.c -o build/console.o    
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/console/console.c -o build/console.o  
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/tty/tty.c -o build/tty.o    
 
-ld -m elf_x86_64 -nostdlib --oformat binary -Ttext 0x100000 build/kernel.o build/kernelc.o  build/paging.o build/frame.o  build/framebuffer.o build/console.o  -o uefiboot/EFI/BOOT/kernel.bin 
+ld -m elf_x86_64 -nostdlib --oformat binary -Ttext 0x100000 build/kernel.o build/kernelc.o  build/paging.o build/frame.o  build/framebuffer.o build/console.o build/tty.o build/interrupt_handler.o  -o uefiboot/EFI/BOOT/kernel.bin 
 
 
 echo done

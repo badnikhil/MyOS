@@ -1,9 +1,26 @@
 #pragma once
 #include <types.h>
 struct regs {
-    u32 edi, esi, ebp, esp_dummy, ebx, edx, ecx, eax;
-    u32 ds, es, fs, gs;
-    u32 idt_vector;
-    u32 err_code;
-    u32 eip, cs, eflags;
-    };
+    u64 r15;
+    u64 r14;
+    u64 r13;
+    u64 r12;
+    u64 r11;
+    u64 r10;
+    u64 r9;
+    u64 r8;
+    u64 rdi;
+    u64 rsi;
+    u64 rbp;
+    u64 rbx;
+    u64 rdx;
+    u64 rcx;
+    u64 rax;
+    u64 idt_vector;
+    u64 err_code;
+    u64 rip;
+    u64 cs;
+    u64 rflags;
+    u64 rsp;  // if privilege change
+    u64 ss;   // if privilege change
+};
