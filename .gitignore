@@ -12,7 +12,8 @@
 
 # List files
 *.lst
-
+*.obj
+*.so
 # Log files
 *.log
 qemu.log

@@ -6,20 +6,9 @@ boot_info_t* g_boot_info;
 
 
 void kernel_main(){
-    struct framebuffer frame_buffer;
-    frame_buffer.base = g_boot_info->framebuffer.base ;
-    frame_buffer.bpp = g_boot_info->framebuffer.bpp;
-    frame_buffer.height = g_boot_info->framebuffer.height;
-    frame_buffer.pitch = g_boot_info->framebuffer.pitch;
-    frame_buffer.width = g_boot_info->framebuffer.width;
-    fb_init(&frame_buffer);
-    while (1)
-    {
-        /* code */
-    }
-    
-    fb_draw_string(10, 10, "A", white, black);
-
+    fb_init(&g_boot_info->framebuffer);
+    fb_draw_string(10, 10, "ABCDEFGHIJKL", white, black);
+    fb_draw_string(10, 10, "B", white, black);
     while(1)
     {}
 }
