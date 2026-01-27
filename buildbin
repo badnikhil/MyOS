@@ -10,9 +10,9 @@ gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c k
 gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/shell.c -o build/shell.o
 gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/syscall/syscalls.c -o build/syscalls.o  
 gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c drivers/display/framebuffer.c -o build/framebuffer.o
-gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c drivers/display/font.c -o build/font.o    
+gcc -m64 -ffreestanding -fno-pie -fno-stack-protector -I include/ -nostdlib -c kernel/console/console.c -o build/console.o    
 
-ld -m elf_x86_64 -nostdlib --oformat binary -Ttext 0x100000 build/kernel.o build/kernelc.o  build/paging.o build/frame.o  build/framebuffer.o build/font.o -o uefiboot/EFI/BOOT/kernel.bin 
+ld -m elf_x86_64 -nostdlib --oformat binary -Ttext 0x100000 build/kernel.o build/kernelc.o  build/paging.o build/frame.o  build/framebuffer.o build/console.o  -o uefiboot/EFI/BOOT/kernel.bin 
 
 
 echo done

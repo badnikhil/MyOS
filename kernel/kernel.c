@@ -1,14 +1,19 @@
 #include<drivers/display.h>
 #include<bootinfo.h>
-struct pixel white = { .r=255, .g=255, .b=255, .a=255 };
-struct pixel black = { .r=0, .g=0, .b=0, .a=255 };
+#include<kernel/console.h>
 boot_info_t* g_boot_info;
 
-
+// The ultimate goal of  kernel is not messing with framebuffer it should do serious tasks 
 void kernel_main(){
-    fb_init(&g_boot_info->framebuffer);
-    fb_draw_string(10, 10, "ABCDEFGHIJKL", white, black);
-    fb_draw_string(10, 10, "B", white, black);
+    struct framebuffer fb;
+    fb.base = g_boot_info->framebuffer.base;
+    fb.bpp = g_boot_info->framebuffer.bpp;
+    fb.height = g_boot_info->framebuffer.height;
+    fb.pitch = g_boot_info->framebuffer.pitch * 4;
+    fb.width =   g_boot_info->framebuffer.width;
+    console_init(&fb);
+    u8 string[] = "Heree\n it is\n";
+    print_string(string);
     while(1)
     {}
 }
