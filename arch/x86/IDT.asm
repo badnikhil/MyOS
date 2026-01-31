@@ -4,10 +4,9 @@
 extern handle_interrupt
 global Keyboard_IRQ_ISR
 extern handle_PF
+extern print_string
 [bits 64]
 ;THIS FILE CONSISTS OF IDT , ISRs AND THE ENTRIES(GATES)
-
-
 
 ;------ DEFINING A MACRO BECAUSE I AM NOT STUPID-------
 ;------ THE SOLE REASON IS BECAUSE I AM INTELLIGENT------
@@ -15,25 +14,26 @@ extern handle_PF
 ;1st entry should be which gate you want to write 
 ;the address of ISR handling the corresponding event should be in rax
 %macro add_interrupt_gate_in_IDT 1
-    ; IDT entry = 16 bytes
-    ; RAX = ISR address
-
+    ; IDT entry = 16 bytes 
+    ; RAX = ISR address 
+    
     mov word  [idt_start + %1*16 + 0], ax          ; offset[15:0]
     mov word  [idt_start + %1*16 + 2], 0x08        ; code segment selector
     mov byte  [idt_start + %1*16 + 4], 0           ; IST = 0
-    mov byte  [idt_start + %1*16 + 5], 10001110b   ; type = interrupt gate
+    mov byte  [idt_start + %1*16 + 5], 0xEE        ; type = interrupt gate + P bit
 
     shr rax, 16
     mov word  [idt_start + %1*16 + 6], ax          ; offset[31:16]
 
     shr rax, 16
-    mov dword [idt_start + %1*16 + 8], rax         ; offset[63:32]
+    mov dword [idt_start + %1*16 + 8], eax         ; offset[63:32]
 
     mov dword [idt_start + %1*16 + 12], 0          ; reserved
 %endmacro
 
 
 ;----- IDT DEFINITIONS-----
+align 16
 idt_start:
     times 256 dq 0 , 0
 idt_end:
@@ -113,7 +113,7 @@ load_idt:
     add_interrupt_gate_in_IDT 32
     mov rax, Keyboard_Stub
     add_interrupt_gate_in_IDT 33    ;IRQ 1 (Keyboard)
-    mov rax, HWI_Master_ISRiretq
+    mov rax, HWI_Master_ISR
     add_interrupt_gate_in_IDT 34
     mov rax, HWI_Master_ISR
     add_interrupt_gate_in_IDT 35
@@ -141,137 +141,219 @@ load_idt:
     add_interrupt_gate_in_IDT 46
     mov rax , HWI_Slave_ISR
     add_interrupt_gate_in_IDT 47
-    ;to align with linux ADB and hope this OS works like linux and i can run binaries meant for linux on this OS we are using 0x80.yeah
+    ;to align with linux ADB and hope this OS works like linux and
+    ; i can run binaries meant for linux on this OS we are using 0x80.yeah
     mov rax, syscall_isr
     add_interrupt_gate_in_IDT 128
     
-    lidt [idt_descriptor]
+    lidt [rel idt_descriptor]
     ret
 
 
 ; WILL UPDATE THESE ON A GOOD DAY . DEFINITELY NOT TODAY
 DE_ISR:        ; 0  Divide Error
-    pushad
-    push 1
+    push rbx                ; preserve rbx
+    lea rbx, [rel DE_msg]
+    push rbx
+    call print_string
+    add rsp, 8              ; 64-bit: pop rbx and message pointer
+    pop rbx
     iretq
 
 DB_ISR:        ; 1  Debug
-    push DB_msg
+    push rbx
+    lea rbx, [rel DB_msg]
+    push rbx
     call print_string
-    add esp , 4
+    add rsp, 8
+    pop rbx
     iretq
 
 NMI_ISR:       ; 2  NMI
-    push NMI_msg
+    push rbx
+    lea rbx, [rel NMI_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 BP_ISR:        ; 3  Breakpoint
-    push BP_msg
+    push rbx
+    lea rbx, [rel BP_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 OF_ISR:        ; 4  Overflow
-    push OF_msg
+    push rbx
+    lea rbx, [rel OF_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 BR_ISR:        ; 5  BOUND Range Exceeded
-    push BR_msg
+    push rbx
+    lea rbx, [rel BR_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 UD_ISR:        ; 6  Invalid Opcode
-    push UD_msg
+    push rbx
+    lea rbx, [rel UD_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 NM_ISR:        ; 7  Device Not Available
-    push NM_msg
+    push rbx
+    lea rbx, [rel NM_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 DF_ISR:        ; 8  Double Fault (error code)
-    push DF_msg
+    push rbx
+    lea rbx, [rel DF_msg]
+    push rbx
     call print_string
-    add esp, 4
+    add rsp, 8
+    pop rbx
+    add rsp, 8              ; pop error code (64-bit)
     jmp $
 
 CSO_ISR:       ; 9  Coprocessor Segment Overrun (reserved)
-    push CSO_msg
+    push rbx
+    lea rbx, [rel CSO_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 TS_ISR:        ; 10 Invalid TSS (error code)
-    push TS_msg
+    push rbx
+    lea rbx, [rel TS_msg]
+    push rbx
     call print_string
-    add esp, 4
+    add rsp, 8
+    pop rbx
+    add rsp, 8              ; pop error code (64-bit)
     jmp $
 
 NP_ISR:        ; 11 Segment Not Present (error code)
-    push NP_msg
+    push rbx
+    lea rbx, [rel NP_msg]
+    push rbx
     call print_string
-    add esp, 4
+    add rsp, 8
+    pop rbx
+    add rsp, 8              ; pop error code (64-bit)
     jmp $
 
 SS_ISR:        ; 12 Stack Segment Fault (error code)
-    push SS_msg
+    push rbx
+    lea rbx, [rel SS_msg]
+    push rbx
     call print_string
-    add esp, 4
+    add rsp, 8
+    pop rbx
+    add rsp, 8              ; pop error code (64-bit)
     jmp $
 
 GP_ISR:        ; 13 General Protection (error code)
-    push GP_msg
+    push rbx
+    lea rbx, [rel GP_msg]
+    push rbx
     call print_string
-    add esp, 4
+    add rsp, 8
+    pop rbx
+    add rsp, 8              ; pop error code (64-bit)
     jmp $
 
 PF_ISR:        ; 14 Page Fault (error code)
-    push PF_msg
+    push rbx
+    lea rbx, [rel PF_msg]
+    push rbx
     call print_string
-    add esp , 4
+    add rsp, 8
+    pop rbx
     mov rax , cr2
     push rax
     call handle_PF
-    add esp , 4
-    ; for error code
-    add esp , 4
+    add rsp, 8              ; pop cr2 (64-bit)
+    add rsp, 8              ; pop error code (64-bit)
     iretq
 
 RES15_ISR:     ; 15 Reserved
-    push RES15_msg
+    push rbx
+    lea rbx, [rel RES15_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 MF_ISR:        ; 16 x87 Floating-Point Error
-    push MF_msg
+    push rbx
+    lea rbx, [rel MF_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 AC_ISR:        ; 17 Alignment Check (error code)
-    push AC_msg
+    push rbx
+    lea rbx, [rel AC_msg]
+    push rbx
     call print_string
-    add esp, 4
+    add rsp, 8
+    pop rbx
+    add rsp, 8              ; pop error code (64-bit)
     jmp $
 
 MC_ISR:        ; 18 Machine Check
-    push MC_msg
+    push rbx
+    lea rbx, [rel MC_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 XF_ISR:        ; 19 SIMD Floating-Point Exception
-    push XF_msg
+    push rbx
+    lea rbx, [rel XF_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 VE_ISR:        ; 20 Virtualization Exception
-    push VE_msg
+    push rbx
+    lea rbx, [rel VE_msg]
+    push rbx
     call print_string
+    add rsp, 8
+    pop rbx
     jmp $
 
 HWI_Master_ISR:            ;32-39 The Master PIC IRQs
     push rsi
-    mov rsi , HWI_msg 
+    lea rsi, [rel HWI_msg]
     call print_string
     mov al, 0x20        ;EOI
     out 0x20, al
@@ -280,52 +362,21 @@ HWI_Master_ISR:            ;32-39 The Master PIC IRQs
 
 HWI_Slave_ISR:              ;40-47 The Slave PIC IRQs
     push rsi
-    mov rsi , HWI_msg
+    lea rsi, [rel HWI_msg]
     call print_string
-
-
     mov al, 0x20        ;EOI
     out 0xA0, al        ;Slave
     out 0x20, al        ;Master
     pop rsi
-
     iretq
 
 syscall_isr:
- push dword 0
- push dword 128
- jmp common_entry
-
-
-Timer_Stub:
-    ; ---- segment registers ----
-    push gs
-    push fs
-    push es
-    push ds
-
-    ; ---- general purpose registers ----
-    pushad
-    ; pushad order (top → bottom):
-    ; edi rsi ebp esp ebx edx ecx rax
-
-    ; ---- interrupt metadata ----
-    push dword 32          ; idt_vector (IRQ1 → 33)
-    push dword 0           ; err_code (IRQs don't have one)
-
-    ; ---- call C handler ----
-    call handle_interrupt
-    add esp, 8             ; pop idt_vector + err_code
-
-    ; ---- restore registers ----
-    popad
-
-    pop ds
-    pop es
-    pop fs
-    pop gs
-
-    iretq
+    push rax
+    mov rax, 0
+    push rax
+    mov rax, 128
+    push rax
+    jmp common_entry
 
 ;IRQ0 is for timer actually it ticks 18 times per second ..so cant test other interrupts
 Timer_IRQ_ISR:
@@ -334,9 +385,10 @@ Timer_IRQ_ISR:
     out 0x20, al
     pop rsi
     iretq
+
 Keyboard_Stub:
-    push dword 0
-    push dword 33
+    push 0
+    push 33
     jmp common_entry
 
 
@@ -366,29 +418,6 @@ XF_msg db "XF ISR called", 0
 VE_msg db "VE ISR called", 0
 
 common_entry:
-    push gs
-    push fs
-    push es
-    push ds
-
-    pushad
-    lea rax, [rsp]     
-    push rax
-    call handle_interrupt
-    add rsp, 4             ; pop argument
-
-    popad
-    pop ds
-    pop es
-    pop fs
-    pop gs
-    add rsp , 8
-    iretq
-print_string:
-    ret
-
-
-pushad:
     push rax
     push rcx
     push rdx
@@ -404,10 +433,10 @@ pushad:
     push r13
     push r14
     push r15
-    ret
-
-
-popad:
+    
+    lea rdi, [rsp]              ; rdi now points to r15
+    call handle_interrupt
+    
     pop r15
     pop r14
     pop r13
@@ -423,3 +452,6 @@ popad:
     pop rdx
     pop rcx
     pop rax
+    
+    add rsp, 16
+    iretq
