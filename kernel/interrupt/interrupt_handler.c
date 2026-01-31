@@ -3,9 +3,8 @@
 #include <mm/frame.h>
 #include <mm/paging.h>
 #include<IO.h>
-#include<kernel/interrupt_handler.h>
 #include<kernel/tty.h>
-
+#include<kernel/timer.h>
 static const char scancode_table[128] = {
     0,  27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b',
     '\t', //this is for tab
@@ -58,22 +57,27 @@ char sc_to_ascii(u8 scancode) {
         return scancode_table[scancode];
     }
 
-
-void handle_keyboard_irq(void) {
-    // Keyboard_IRQ_ISR();
+void handle_timer_irq( ){
+    increment_timer();
+    pic_send_eoi(2);
+}
+void handle_keyboard_irq( ) {
     u8 c = inb(0x60);
     pic_send_eoi(1);   
     c = sc_to_ascii(c);
+    if(c)
     tty_feed(c);
     // process_the_character(&c);
-
     }  
+
+
 void handle_interrupt(struct regs *r) {
     // handle_keyboard_irq();
     switch(r->idt_vector){
         case 33 : handle_keyboard_irq();break;
+        case 32 : handle_timer_irq();break;
         // case 128 : handle_syscall(r);
-    }
+        }
  
     }
   
