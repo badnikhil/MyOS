@@ -5,6 +5,7 @@
 #include<IO.h>
 #include<kernel/tty.h>
 #include<kernel/timer.h>
+#include <kernel/apic.h>
 static const char scancode_table[128] = {
     0,  27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b',
     '\t', //this is for tab
@@ -41,12 +42,12 @@ char sc_to_ascii(u8 scancode) {
         if (scancode == 0xAA || scancode == 0xB6)
             shift = 0;
         return 0;
-    }
+        }
     //shift handling for capital letters
     if (scancode == 0x2A || scancode == 0x36) {
         shift = 1;
         return 0;
-    }
+        }
 
     if (scancode > 127)
         return 0;
@@ -58,12 +59,11 @@ char sc_to_ascii(u8 scancode) {
     }
 
 void handle_timer_irq( ){
+    // print_string("Timer");
     increment_timer();
-    pic_send_eoi(2);
-}
+    }
 void handle_keyboard_irq( ) {
-    u8 c = inb(0x60);
-    pic_send_eoi(1);   
+    u8 c = inb(0x60);   
     c = sc_to_ascii(c);
     if(c)
     tty_feed(c);
@@ -71,20 +71,30 @@ void handle_keyboard_irq( ) {
     }  
 
 
+static u8 use_apic = 0;
+void interrupt_handler_use_apic(){
+    use_apic = 1;
+ }
+void nothing(){
+    print_string("SOMETHING IS WRONG WITH REGISTERS");
+    }   
 void handle_interrupt(struct regs *r) {
-    // handle_keyboard_irq();
     switch(r->idt_vector){
         case 33 : handle_keyboard_irq();break;
         case 32 : handle_timer_irq();break;
-        // case 128 : handle_syscall(r);
+        default : nothing();break;
         }
- 
-    }
-  
+    switch(use_apic){
+        case 0 : pic_send_eoi(r->idt_vector - 32);break;
+        case 1 : apic_eoi(); break;
+        }
+}
+
 #define PAGE_RW        0x2
 void handle_PF(u32 faulty_virtual_adress){
     u32 allocated_frame = allocate_frame();
     map_page_to_physical_address(faulty_virtual_adress , allocated_frame , PAGE_RW);
     print_string("Page fault handled Successfully\n");
     }
+
  

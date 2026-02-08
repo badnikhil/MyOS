@@ -25,7 +25,7 @@ void InitPaging(){
          //Mapping memory adresses
         map_page_to_physical_address((i << 12) , (i << 12), PAGE_RW); 
         }
-    }   
+}   
 void map_page_to_physical_address(u32 virtual_adress , u32 physical_adress , u32 flags){
     u32 page_directory_entry_index = virtual_adress >> 22;    //first 10 bits are index of page table in page dir
     u32 page_table_entry_index = (virtual_adress >> 12) & 0x3FF;   //next 10 bits are index of page entry in page table

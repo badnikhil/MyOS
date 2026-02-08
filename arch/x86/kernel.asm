@@ -4,6 +4,7 @@ extern kernel_main
 extern g_boot_info
 global _start
 
+
 SECTION .text
 _start:
     mov [rel g_boot_info], rdi
@@ -29,12 +30,18 @@ _start:
     retfq
     
 .reload_cs:
-    ; Load IDT
-    call pic_init
-    call load_idt
+    call check_apic
+    cmp rax , 0
+    jz .pic
+    call apic_config
+    jmp .interrupt_done
 
-    
-    
+.pic:
+    call configure_pic
+    jmp .interrupt_done
+
+.interrupt_done:
+    call load_idt
     ; Set up stack
     mov rsp, stack_top
     
@@ -43,17 +50,24 @@ _start:
     
     ; Clear direction flag
     cld
-    
     ; Call C kernel with boot_info parameter
-    sti
     call kernel_main
-    
+    int 3 
+    jmp $
     ; Hang if kernel returns
+
+
+
 .hang:
     cli
     hlt
     jmp .hang
 
+
+configure_pic:
+    ; Load IDT
+    call pic_init
+    ret
 SECTION .rodata
 align 16
 gdt64:
@@ -72,6 +86,8 @@ DATA_SEL equ 0x10
 
 %include "IDT.asm"
 %include "pic.asm"
+%include "apic.asm"
+%include "msr.asm"
 SECTION .bss
 align 16
 stack_bottom:

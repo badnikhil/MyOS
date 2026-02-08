@@ -109,7 +109,7 @@ load_idt:
     add_interrupt_gate_in_IDT 20
     ;from 21 - 31 are reserved for CPU things
     ;from 32 - 39 - Master PIC IQRs
-    mov rax, Timer_IRQ_ISR         ;IRQ 0  (Timer)
+    mov rax, Timer_Stub         ;IRQ 0  (Timer)
     add_interrupt_gate_in_IDT 32
     mov rax, Keyboard_Stub
     add_interrupt_gate_in_IDT 33    ;IRQ 1 (Keyboard)
@@ -145,215 +145,178 @@ load_idt:
     ; i can run binaries meant for linux on this OS we are using 0x80.yeah
     mov rax, syscall_isr
     add_interrupt_gate_in_IDT 128
-    
+    ;spurious interrupt handler
+    mov rax, Spurious_ISR
+    add_interrupt_gate_in_IDT 255
     lidt [rel idt_descriptor]
     ret
 
 
 ; WILL UPDATE THESE ON A GOOD DAY . DEFINITELY NOT TODAY
-DE_ISR:        ; 0  Divide Error
-    push rbx                ; preserve rbx
-    lea rbx, [rel DE_msg]
-    push rbx
-    call print_string
-    add rsp, 8              ; 64-bit: pop rbx and message pointer
-    pop rbx
+
+Spurious_ISR:
     iretq
+
+; FIXED EXCEPTION ISRs (0-20)
+DE_ISR:        ; 0  Divide Error
+    push rbx
+    mov rdi, DE_msg
+    call print_string 
+    pop rbx
+    jmp $
 
 DB_ISR:        ; 1  Debug
     push rbx
-    lea rbx, [rel DB_msg]
-    push rbx
+    mov rdi, DB_msg
     call print_string
-    add rsp, 8
     pop rbx
+    jmp $
+
+NMI_ISR:       ; 2  Non-Maskable Interrupt
+    push rdi
+    mov rdi, NMI_msg
+    call print_string
+    pop rdi
+    jmp $
+
+BP_ISR:
+    push rdi
+    mov rdi , BP_msg
+    call print_string
+    pop rdi
     iretq
-
-NMI_ISR:       ; 2  NMI
-    push rbx
-    lea rbx, [rel NMI_msg]
-    push rbx
-    call print_string
-    add rsp, 8
-    pop rbx
-    jmp $
-
-BP_ISR:        ; 3  Breakpoint
-    push rbx
-    lea rbx, [rel BP_msg]
-    push rbx
-    call print_string
-    add rsp, 8
-    pop rbx
-    jmp $
-
 OF_ISR:        ; 4  Overflow
     push rbx
-    lea rbx, [rel OF_msg]
-    push rbx
+    mov rdi, OF_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 BR_ISR:        ; 5  BOUND Range Exceeded
     push rbx
-    lea rbx, [rel BR_msg]
-    push rbx
+    mov rdi, BR_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 UD_ISR:        ; 6  Invalid Opcode
     push rbx
-    lea rbx, [rel UD_msg]
-    push rbx
+    mov rdi, UD_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 NM_ISR:        ; 7  Device Not Available
     push rbx
-    lea rbx, [rel NM_msg]
-    push rbx
+    mov rdi, NM_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 DF_ISR:        ; 8  Double Fault (error code)
     push rbx
-    lea rbx, [rel DF_msg]
-    push rbx
+    mov rdi, DF_msg
     call print_string
-    add rsp, 8
     pop rbx
-    add rsp, 8              ; pop error code (64-bit)
+    add rsp, 8              ; pop error code
     jmp $
 
 CSO_ISR:       ; 9  Coprocessor Segment Overrun (reserved)
     push rbx
-    lea rbx, [rel CSO_msg]
-    push rbx
+    mov rdi, CSO_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 TS_ISR:        ; 10 Invalid TSS (error code)
     push rbx
-    lea rbx, [rel TS_msg]
-    push rbx
+    mov rdi, TS_msg
     call print_string
-    add rsp, 8
     pop rbx
-    add rsp, 8              ; pop error code (64-bit)
+    add rsp, 8              ; pop error code
     jmp $
 
 NP_ISR:        ; 11 Segment Not Present (error code)
     push rbx
-    lea rbx, [rel NP_msg]
-    push rbx
+    mov rdi, NP_msg
     call print_string
-    add rsp, 8
     pop rbx
-    add rsp, 8              ; pop error code (64-bit)
+    add rsp, 8              ; pop error code
     jmp $
 
 SS_ISR:        ; 12 Stack Segment Fault (error code)
     push rbx
-    lea rbx, [rel SS_msg]
-    push rbx
+    mov rdi, SS_msg
     call print_string
-    add rsp, 8
     pop rbx
-    add rsp, 8              ; pop error code (64-bit)
+    add rsp, 8              ; pop error code
     jmp $
 
 GP_ISR:        ; 13 General Protection (error code)
     push rbx
-    lea rbx, [rel GP_msg]
-    push rbx
+    mov rdi, GP_msg
     call print_string
-    add rsp, 8
     pop rbx
-    add rsp, 8              ; pop error code (64-bit)
+    add rsp, 8              ; pop error code
     jmp $
 
 PF_ISR:        ; 14 Page Fault (error code)
     push rbx
-    lea rbx, [rel PF_msg]
-    push rbx
+    mov rdi, PF_msg
     call print_string
-    add rsp, 8
     pop rbx
-    mov rax , cr2
+    mov rax, cr2
     push rax
     call handle_PF
-    add rsp, 8              ; pop cr2 (64-bit)
-    add rsp, 8              ; pop error code (64-bit)
-    iretq
+    add rsp, 8              ; pop cr2
+    add rsp, 8              ; pop error code
+    jmp $
 
 RES15_ISR:     ; 15 Reserved
     push rbx
-    lea rbx, [rel RES15_msg]
-    push rbx
+    mov rdi, RES15_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 MF_ISR:        ; 16 x87 Floating-Point Error
     push rbx
-    lea rbx, [rel MF_msg]
-    push rbx
+    mov rdi, MF_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 AC_ISR:        ; 17 Alignment Check (error code)
     push rbx
-    lea rbx, [rel AC_msg]
-    push rbx
+    mov rdi, AC_msg
     call print_string
-    add rsp, 8
     pop rbx
-    add rsp, 8              ; pop error code (64-bit)
+    add rsp, 8              ; pop error code
     jmp $
 
 MC_ISR:        ; 18 Machine Check
     push rbx
-    lea rbx, [rel MC_msg]
-    push rbx
+    mov rdi, MC_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 XF_ISR:        ; 19 SIMD Floating-Point Exception
     push rbx
-    lea rbx, [rel XF_msg]
-    push rbx
+    mov rdi, XF_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
 
 VE_ISR:        ; 20 Virtualization Exception
     push rbx
-    lea rbx, [rel VE_msg]
-    push rbx
+    mov rdi, VE_msg
     call print_string
-    add rsp, 8
     pop rbx
     jmp $
-
 HWI_Master_ISR:            ;32-39 The Master PIC IRQs
     push rsi
-    lea rsi, [rel HWI_msg]
+    mov rsi,HWI_msg
     call print_string
     mov al, 0x20        ;EOI
     out 0x20, al
@@ -362,7 +325,7 @@ HWI_Master_ISR:            ;32-39 The Master PIC IRQs
 
 HWI_Slave_ISR:              ;40-47 The Slave PIC IRQs
     push rsi
-    lea rsi, [rel HWI_msg]
+    mov rsi, HWI_msg
     call print_string
     mov al, 0x20        ;EOI
     out 0xA0, al        ;Slave
@@ -386,6 +349,10 @@ Timer_IRQ_ISR:
     pop rsi
     iretq
 
+Timer_Stub:
+    push 0
+    push 32
+    jmp common_entry
 Keyboard_Stub:
     push 0
     push 33
@@ -434,7 +401,7 @@ common_entry:
     push r14
     push r15
     
-    lea rdi, [rsp]              ; rdi now points to r15
+    mov rdi, rsp              ; rdi now points to r15
     call handle_interrupt
     
     pop r15

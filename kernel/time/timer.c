@@ -9,5 +9,5 @@ u64 get_timer(){
     }
 void increment_timer(){
     timer++;
-    if(timer % 8 == 0) blink();
+    if(timer % 2 == 0) blink();
     }

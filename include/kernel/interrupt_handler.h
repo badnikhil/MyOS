@@ -1,2 +1,4 @@
 #pragma once
-#include<types.h>
+
+
+void interrupt_handler_use_apic();
