@@ -1,7 +1,8 @@
+#pragma once
 #include <types.h>
 
 struct framebuffer {
-    void *base;
+    u64 *base;
     u32 width;
     u32 height;
     u32 pitch;
@@ -11,22 +12,14 @@ struct pixel{
     u8 r,g,b,a;
 };
 
-void fb_init(struct framebuffer *fb);
-void fb_put_pixel(u32 x, u32 y, struct pixel* p);
-void fb_clear(u32 color);
+u8 fb_init(struct framebuffer *fb);
+void fb_clear( struct pixel* px);
 
 void fb_draw_char(
     u32 x,
     u32 y,
-    char c,
-    struct pixel fg,
-    struct pixel bg
+    u8 c,
+    struct pixel* fg,
+    struct pixel* bg
 );
 
-void fb_draw_string(
-    u32 x,
-    u32 y,
-    const char *str,
-    struct pixel fg,
-    struct pixel bg
-);

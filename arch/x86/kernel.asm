@@ -30,7 +30,10 @@ _start:
     
 .reload_cs:
     ; Load IDT
-    lidt [rel idt_desc]
+    call pic_init
+    call load_idt
+
+    
     
     ; Set up stack
     mov rsp, stack_top
@@ -41,10 +44,8 @@ _start:
     ; Clear direction flag
     cld
     
-    ; Enable interrupts (if you want)
-    ; sti
-    
     ; Call C kernel with boot_info parameter
+    sti
     call kernel_main
     
     ; Hang if kernel returns
@@ -69,17 +70,8 @@ gdt64_end:
 CODE_SEL equ 0x08
 DATA_SEL equ 0x10
 
-; IDT - 256 entrie
-align 16
-idt:
-    times 256 dq 0, 0            ; 256 IDT entries (16 bytes each)
-
-idt_desc:
-    dw idt_end - idt - 1         ; Limit
-    dq idt                        ; Base
-
-idt_end:
-
+%include "IDT.asm"
+%include "pic.asm"
 SECTION .bss
 align 16
 stack_bottom:
