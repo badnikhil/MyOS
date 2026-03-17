@@ -2,6 +2,8 @@
 
 extern kernel_main
 extern g_boot_info
+extern InitPaging
+extern pml4
 global _start
 
 
@@ -41,6 +43,7 @@ _start:
     jmp .interrupt_done
 
 .interrupt_done:
+
     call load_idt
     ; Set up stack
     mov rsp, stack_top
@@ -51,11 +54,15 @@ _start:
     ; Clear direction flag
     cld
     ; Call C kernel with boot_info parameter
+    
+    ;insert our own pml4
+    cli
+    call InitPaging
+    mov rax, pml4
+    ;mov cr3, rax
     call kernel_main
-    int 3 
     jmp $
     ; Hang if kernel returns
-
 
 
 .hang:
@@ -65,9 +72,9 @@ _start:
 
 
 configure_pic:
-    ; Load IDT
     call pic_init
     ret
+
 SECTION .rodata
 align 16
 gdt64:
@@ -88,6 +95,7 @@ DATA_SEL equ 0x10
 %include "pic.asm"
 %include "apic.asm"
 %include "msr.asm"
+%include "pci_io.asm"
 SECTION .bss
 align 16
 stack_bottom:

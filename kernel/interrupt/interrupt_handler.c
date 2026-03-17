@@ -59,7 +59,7 @@ char sc_to_ascii(u8 scancode) {
     }
 
 void handle_timer_irq( ){
-    // print_string("Timer");
+    // print_string("Tick ");
     increment_timer();
     }
 void handle_keyboard_irq( ) {
@@ -77,11 +77,16 @@ void interrupt_handler_use_apic(){
  }
 void nothing(){
     print_string("SOMETHING IS WRONG WITH REGISTERS");
-    }   
+    }  
+void xhci_handle(){
+    print_string("XHCI INTERRUPT FIRED\n");
+    apic_eoi();
+    } 
 void handle_interrupt(struct regs *r) {
     switch(r->idt_vector){
         case 33 : handle_keyboard_irq();break;
         case 32 : handle_timer_irq();break;
+        case 64 : xhci_handle();break;
         default : nothing();break;
         }
     switch(use_apic){
@@ -91,10 +96,11 @@ void handle_interrupt(struct regs *r) {
 }
 
 #define PAGE_RW        0x2
-void handle_PF(u32 faulty_virtual_adress){
-    u32 allocated_frame = allocate_frame();
-    map_page_to_physical_address(faulty_virtual_adress , allocated_frame , PAGE_RW);
-    print_string("Page fault handled Successfully\n");
-    }
+void handle_PF(u64 faulty_virtual_adress){
+    // u32 allocated_frame = allocate_frame();
+    // map_page_to_physical_address(faulty_virtual_adress , allocated_frame , PAGE_RW);
 
- 
+print_string("CR2: ");
+print_hex32((u32)(faulty_virtual_adress >> 32));
+print_hex32((u32)(faulty_virtual_adress));
+    }

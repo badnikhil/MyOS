@@ -1,10 +1,14 @@
 #include <kernel/apic.h>
 #include <kernel/ioapic.h>
 #include <kernel/console.h>
-
+#include<mm/mmio.h>
 #define IOAPIC_BASE 0xFEC00000
 #define IOREGSEL   (*(volatile u32 *)(IOAPIC_BASE + 0x00))
 #define IOWIN   (*(volatile u32 *)(IOAPIC_BASE + 0x10))
+
+void ioapic_init(){
+    map_mmio(IOAPIC_BASE, 0x1000);
+    }
 void ioapic_write(u8 reg, u32 value){
     IOREGSEL = reg;
     IOWIN = value;

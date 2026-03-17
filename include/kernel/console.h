@@ -10,3 +10,7 @@ void print_string(u8 *str);
 void console_init(struct framebuffer* frameb);
 void clear_console( );
 void console_backspace(void);
+void print_hex16(u16 val);
+void print_hex32(u32 val);
+void print_dec8(u8 val);
+void print_test();

@@ -1,6 +1,7 @@
 #include <kernel/apic.h>
 #include <kernel/ioapic.h>
 #include <kernel/console.h>
+#include <mm/paging.h>
 #define IA32_APIC_BASE_MSR 0x1B
 extern u64 rdmsr(u32);
 extern u8 is_apic;
@@ -16,29 +17,47 @@ void read_apic_base(){
     }
 
     lapic_base = (volatile u32 *)(apic_base_msr & 0xFFFFF000);
+   map_range(
+    lapic_base,
+    lapic_base,
+    0x1000,
+    PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON
+);
 }
 
 void apic_init(void){
+
     //read apic base adress
     read_apic_base();
+    
+    
     // enable apic and add spurious interrupt vector
     u32 svr = apic_read(LAPIC_SVR);
+
     apic_write(LAPIC_SVR, (svr & 0xFFFFFF00) | 0xFF | (1 << 8));
 
-    u8 apic_id = (apic_read(LAPIC_ID) >> 24) & 0xFF;
+    apic_write(0x80, 0x0);   // TPR = 0 (allow all priorities)
 
+    u8 apic_id = (apic_read(LAPIC_ID) >> 24) & 0xFF;
+    u32 id = apic_read(LAPIC_ID);
+   
+    print_string("LAPIC ID: ");
+    print_hex32(id);
+    print_string("\n");
     // Divide by 16 (safe default)
     apic_write(LAPIC_TIMER_DIV, 0x3);
 
     // Vector 0x20, periodic mode
     apic_write(LAPIC_LVT_TIMER, 0x20 | (1 << 17));
-
+  
+    
     // Initial count (experiment with value)
     apic_write(LAPIC_TIMER_INIT, 10000000);
+
+    ioapic_init();
     // IF the device have PS2 emulation or support. kbd interrupts will work perfectly.
     ioapic_set_irq(1, 33);
     }
-
 
 void apic_eoi( ){ 
     lapic_base[LAPIC_EOI / 4] = 0;

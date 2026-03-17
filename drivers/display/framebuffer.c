@@ -1,4 +1,5 @@
 #include <drivers/display.h>
+#include<mm/paging.h>
 #include "font.h"
 
 
@@ -10,11 +11,22 @@ u32 pack_pixel(struct pixel* p) {
 
 u8 fb_init(struct framebuffer *boot_display_info){
     if(boot_display_info == 0) return 0;
+  
     curr_framebuffer.base = boot_display_info->base;
     curr_framebuffer.bpp = boot_display_info->bpp;
     curr_framebuffer.height = boot_display_info->height;
     curr_framebuffer.pitch = boot_display_info->pitch;
     curr_framebuffer.width = boot_display_info->width;   
+    u64 flags = PRESENT_BIT_ON | RW_BIT_ON | PWT_BIT_ON | PCD_BIT_ON;
+
+    u64 fb_size = curr_framebuffer.pitch * curr_framebuffer.height;
+
+    // mapping framebuffer region 
+    u64 start = (u64)curr_framebuffer.base & ~0xFFFULL;
+    u64 end   = (u64)(curr_framebuffer.base + fb_size + 0xFFFULL) & ~0xFFFULL;
+
+
+    map_range(start, start, end - start, flags);
     }
 
 

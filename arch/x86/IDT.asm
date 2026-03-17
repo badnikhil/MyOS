@@ -5,6 +5,7 @@ extern handle_interrupt
 global Keyboard_IRQ_ISR
 extern handle_PF
 extern print_string
+extern print_hex64
 [bits 64]
 ;THIS FILE CONSISTS OF IDT , ISRs AND THE ENTRIES(GATES)
 
@@ -20,7 +21,7 @@ extern print_string
     mov word  [idt_start + %1*16 + 0], ax          ; offset[15:0]
     mov word  [idt_start + %1*16 + 2], 0x08        ; code segment selector
     mov byte  [idt_start + %1*16 + 4], 0           ; IST = 0
-    mov byte  [idt_start + %1*16 + 5], 0xEE        ; type = interrupt gate + P bit
+    mov byte  [idt_start + %1*16 + 5], 0x8E        ; type = interrupt gate + P bit
 
     shr rax, 16
     mov word  [idt_start + %1*16 + 6], ax          ; offset[31:16]
@@ -141,6 +142,8 @@ load_idt:
     add_interrupt_gate_in_IDT 46
     mov rax , HWI_Slave_ISR
     add_interrupt_gate_in_IDT 47
+    mov rax , xhci_stub
+    add_interrupt_gate_in_IDT 64
     ;to align with linux ADB and hope this OS works like linux and
     ; i can run binaries meant for linux on this OS we are using 0x80.yeah
     mov rax, syscall_isr
@@ -260,16 +263,36 @@ GP_ISR:        ; 13 General Protection (error code)
     add rsp, 8              ; pop error code
     jmp $
 
-PF_ISR:        ; 14 Page Fault (error code)
+PF_ISR:
+    cli
+
+    push rax
     push rbx
-    mov rdi, PF_msg
+    push rcx
+    push rdx
+    push rsi
+    push rdi
+
+    ; Print header
+    lea rdi, [rel PF_msg]
     call print_string
-    pop rbx
+
+    ; ---- Print CR2 ----
     mov rax, cr2
     push rax
-    call handle_PF
-    add rsp, 8              ; pop cr2
-    add rsp, 8              ; pop error code
+    lea rdi, [rel msg_cr2]
+    call print_string
+    pop rdi                ; pass CR2 as argument
+    call print_hex64
+
+    ; ---- Print Error Code ----
+    mov rax, [rsp + 6*8]   ; error code location
+    push rax
+    lea rdi, [rel msg_err]
+    call print_string
+    pop rdi
+    call print_hex64
+
     jmp $
 
 RES15_ISR:     ; 15 Reserved
@@ -357,6 +380,10 @@ Keyboard_Stub:
     push 0
     push 33
     jmp common_entry
+xhci_stub:
+    push 0
+    push 64
+    jmp common_entry
 
 
 Timer_IRQ_msg db "......",10,0
@@ -422,3 +449,6 @@ common_entry:
     
     add rsp, 16
     iretq
+
+msg_cr2 db "CR2: ", 0
+msg_err db 10, "Error Code: ", 0
