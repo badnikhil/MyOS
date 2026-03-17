@@ -1,7 +1,13 @@
-sudo qemu-system-x86_64   \
-  -enable-kvm  \
+sudo qemu-system-x86_64 \
+  -machine q35 \
+  -cpu qemu64,+pdpe1gb \
   -m 512M \
   -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
-  -drive if=pflash,format=raw,file=/usr/share/OVMF/OVMF_VARS_4M.snakeoil.fd   \
-  -drive format=raw,file=fat:rw:uefiboot  \
-  -serial stdio
+  -drive if=pflash,format=raw,file=OVMF_VARS.fd \
+  -drive format=raw,file=fat:rw:uefiboot \
+  -boot order=d \
+  -net none \
+  -serial stdio \
+  -device qemu-xhci,id=xhci \
+  -device usb-tablet \
+  # -device usb-kbd
