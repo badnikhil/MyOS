@@ -161,6 +161,37 @@ void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64
     pt_ptr[pt_index] = ENTRY(physical_address, flags | PRESENT_BIT_ON);
 }
 
+// ---- Demand-paging range registry ----
+// A small table of virtual-address ranges that are allowed to be backed by
+// freshly-allocated frames on first access (page fault).  Faults outside any
+// registered range are fatal (handled by the PF handler).
+#define MAX_VM_RANGES 16
+struct vm_range { u64 start; u64 end; u64 flags; u8 used; };
+static struct vm_range vm_ranges[MAX_VM_RANGES];
+
+void vm_register_range(u64 start, u64 end, u64 flags){
+    for (int i = 0; i < MAX_VM_RANGES; i++){
+        if (!vm_ranges[i].used){
+            vm_ranges[i].start = start & ~0xFFFULL;
+            vm_ranges[i].end   = (end + 0xFFFULL) & ~0xFFFULL;
+            vm_ranges[i].flags = flags;
+            vm_ranges[i].used  = 1;
+            return;
+        }
+    }
+}
+
+// Returns 1 and writes *out_flags if addr lies in a registered demand range.
+int vm_range_lookup(u64 addr, u64* out_flags){
+    for (int i = 0; i < MAX_VM_RANGES; i++){
+        if (vm_ranges[i].used && addr >= vm_ranges[i].start && addr < vm_ranges[i].end){
+            if (out_flags) *out_flags = vm_ranges[i].flags;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 void map_range(u64 virtual_address, u64 physical_address, u64 size_in_bytes, u64 flags){
     // align  to page 
     u64 vaddr = virtual_address & ~0xFFFULL;

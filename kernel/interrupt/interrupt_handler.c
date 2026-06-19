@@ -95,12 +95,30 @@ void handle_interrupt(struct regs *r) {
         }
 }
 
-#define PAGE_RW        0x2
-void handle_PF(u64 faulty_virtual_adress){
-    // u32 allocated_frame = allocate_frame();
-    // map_page_to_physical_address(faulty_virtual_adress , allocated_frame , PAGE_RW);
+// Page-fault handler. Called from PF_ISR (arch/x86/IDT.asm) with:
+//   cr2 = faulting virtual address (CR2)
+//   err = CPU page-fault error code (bit0 P, bit1 W/R, bit2 U/S, ...)
+// For faults inside a registered demand-paging range we allocate a frame and
+// map it, then return so the faulting instruction is retried.  Any other fault
+// is fatal: we print CR2 + error code and halt.
+void handle_PF(u64 cr2, u64 err){
+    u64 flags;
+    if (vm_range_lookup(cr2, &flags)){
+        u64 frame = allocate_frame();
+        if (frame != (u64)-1){
+            u64 page = cr2 & ~0xFFFULL;
+            map_page_to_physical_address(page, frame, flags | PRESENT_BIT_ON);
+            __asm__ volatile ("invlpg (%0)" : : "r"(page) : "memory");
+            return;   // retry faulting instruction
+        }
+        print_string("PF: out of frames for demand page\n");
+    }
 
-print_string("CR2: ");
-print_hex32((u32)(faulty_virtual_adress >> 32));
-print_hex32((u32)(faulty_virtual_adress));
+    // Unhandled fault -> panic.
+    print_string("PANIC #PF CR2: ");
+    print_hex64(cr2);
+    print_string(" ERR: ");
+    print_hex64(err);
+    print_string("\n");
+    for(;;){ __asm__ volatile ("cli; hlt"); }
     }

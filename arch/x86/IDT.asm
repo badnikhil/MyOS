@@ -263,37 +263,40 @@ GP_ISR:        ; 13 General Protection (error code)
     add rsp, 8              ; pop error code
     jmp $
 
+; Page Fault (#PF, vector 14). CPU pushes an error code.
+; Stack on entry (top -> bottom): [err][RIP][CS][RFLAGS][RSP][SS].
+; We save the SysV scratch registers, call handle_PF(cr2, err) which either
+; maps the page on demand and returns (we then iretq to retry the faulting
+; instruction) or panics (never returns).
 PF_ISR:
     cli
 
     push rax
-    push rbx
     push rcx
     push rdx
     push rsi
     push rdi
+    push r8
+    push r9
+    push r10
+    push r11
 
-    ; Print header
-    lea rdi, [rel PF_msg]
-    call print_string
+    mov rdi, cr2            ; arg1 = faulting virtual address
+    mov rsi, [rsp + 9*8]    ; arg2 = error code (9 regs pushed above it)
+    call handle_PF          ; demand-map or panic
 
-    ; ---- Print CR2 ----
-    mov rax, cr2
-    push rax
-    lea rdi, [rel msg_cr2]
-    call print_string
-    pop rdi                ; pass CR2 as argument
-    call print_hex64
-
-    ; ---- Print Error Code ----
-    mov rax, [rsp + 6*8]   ; error code location
-    push rax
-    lea rdi, [rel msg_err]
-    call print_string
+    pop r11
+    pop r10
+    pop r9
+    pop r8
     pop rdi
-    call print_hex64
+    pop rsi
+    pop rdx
+    pop rcx
+    pop rax
 
-    jmp $
+    add rsp, 8             ; pop CPU-pushed error code
+    iretq
 
 RES15_ISR:     ; 15 Reserved
     push rbx
