@@ -57,6 +57,19 @@ void map_framebuffer(boot_info_t* boot){
     map_range(base, base, size, PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON);
 }
 
+// Recursive PML4 self-map: point the last PML4 slot (511) at the PML4 itself.
+// This makes every page table reachable through fixed virtual addresses after
+// the CR3 switch, without needing each table frame separately identity-mapped:
+//   PT for VA       -> 0xFFFFFF8000000000 + (VA>>9)  & ...
+//   PML4 itself     -> 0xFFFFFFFFFFFFF000
+// The kernel is identity-mapped at low addresses, so (u64)pml4 is both the
+// virtual and the physical address of the PML4.  Slot 511 covers the top
+// 512GB of the canonical address space, which nothing else uses yet.
+#define RECURSIVE_SLOT 511
+void install_recursive_map(void){
+    pml4[RECURSIVE_SLOT] = ENTRY((u64)pml4, PRESENT_BIT_ON | RW_BIT_ON);
+}
+
 void InitPaging(boot_info_t* boot){
     // Order matters: init_memory_map() initializes the frame allocator and
     // frees conventional RAM into it, then identity-maps low RAM.  Only after
@@ -65,6 +78,7 @@ void InitPaging(boot_info_t* boot){
     init_memory_map(&boot->memory_map);
     bootstrap_paging();
     map_framebuffer(boot);
+    install_recursive_map();
 }
 void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64 flags){
     u64 pml4_index = (virtual_address >> 39) & 0x1FF;
