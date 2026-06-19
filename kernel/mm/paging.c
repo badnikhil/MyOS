@@ -44,6 +44,19 @@ void bootstrap_paging(void){
     map_range((u64)pt,   (u64)pt,   sizeof(pt),   PRESENT_BIT_ON | RW_BIT_ON);
 }
 
+// Identity-map the GOP framebuffer described by the boot info, regardless of
+// what the UEFI memory map says.  The framebuffer typically lives in the PCI
+// MMIO hole (e.g. phys 0x80000000) which is above MAP_EAGER_LIMIT and so is NOT
+// covered by init_memory_map()'s eager low-RAM mapping.  Without this, the
+// console's writes to fb.base would fault once CR3 is switched to our tables.
+// Mapped as write-through, cache-disabled MMIO.
+void map_framebuffer(boot_info_t* boot){
+    u64 base = boot->framebuffer.base;
+    u64 size = boot->framebuffer.size;
+    if (!base || !size) return;
+    map_range(base, base, size, PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON);
+}
+
 void InitPaging(boot_info_t* boot){
     // Order matters: init_memory_map() initializes the frame allocator and
     // frees conventional RAM into it, then identity-maps low RAM.  Only after
@@ -51,6 +64,7 @@ void InitPaging(boot_info_t* boot){
     // page-table allocations.
     init_memory_map(&boot->memory_map);
     bootstrap_paging();
+    map_framebuffer(boot);
 }
 void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64 flags){
     u64 pml4_index = (virtual_address >> 39) & 0x1FF;
