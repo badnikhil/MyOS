@@ -49,17 +49,23 @@ _start:
     mov rsp, stack_top
     
     ; Restore boot_info pointer to RDI for kernel_main call
-    mov rdi, [rel g_boot_info]
+    
     
     ; Clear direction flag
     cld
     ; Call C kernel with boot_info parameter
-    
-    ;insert our own pml4
+
+    ; NOTE: paging bring-up (InitPaging) and the CR3 load are done in C, from
+    ; inside kernel_main -> InitPaging() (kernel/mm/paging.c, write_cr3()).
+    ; It must run AFTER console_init() so the framebuffer mapping uses the live
+    ; boot_info, hence it is NOT done here in asm.  The old asm sequence below
+    ; is kept commented for history only.
     cli
-    call InitPaging
-    mov rax, pml4
+   ; mov rdi, [rel g_boot_info]
+    ;call InitPaging
+    ;mov rax, pml4
     ;mov cr3, rax
+    mov rdi, [rel g_boot_info]
     call kernel_main
     jmp $
     ; Hang if kernel returns

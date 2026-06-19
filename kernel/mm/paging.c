@@ -70,6 +70,17 @@ void install_recursive_map(void){
     pml4[RECURSIVE_SLOT] = ENTRY((u64)pml4, PRESENT_BIT_ON | RW_BIT_ON);
 }
 
+// Load CR3 with a physical PML4 address (and thereby switch active page tables).
+static inline void write_cr3(u64 pml4_phys){
+    __asm__ volatile ("mov %0, %%cr3" : : "r"(pml4_phys) : "memory");
+}
+
+u64 read_cr3(void){
+    u64 v;
+    __asm__ volatile ("mov %%cr3, %0" : "=r"(v));
+    return v;
+}
+
 void InitPaging(boot_info_t* boot){
     // Order matters: init_memory_map() initializes the frame allocator and
     // frees conventional RAM into it, then identity-maps low RAM.  Only after
@@ -79,6 +90,16 @@ void InitPaging(boot_info_t* boot){
     bootstrap_paging();
     map_framebuffer(boot);
     install_recursive_map();
+
+    // Install our kernel PML4.  This is safe ONLY because the steps above have
+    // mapped everything the running context touches the instant CR3 changes:
+    //   * executing code (kernel image, identity-mapped low RAM),
+    //   * the stack (inside the 16MB kernel window),
+    //   * the page-table pages (identity-mapped + recursive self-map),
+    //   * the framebuffer (step 2),
+    //   * the frame bitmap (step 1).
+    // The kernel is identity-mapped, so (u64)pml4 is its physical address.
+    write_cr3((u64)pml4);
 }
 void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64 flags){
     u64 pml4_index = (virtual_address >> 39) & 0x1FF;

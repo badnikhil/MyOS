@@ -28,6 +28,7 @@ void InitPaging(boot_info_t* boot);
 void bootstrap_paging(void);
 void map_framebuffer(boot_info_t* boot);
 void install_recursive_map(void);
+u64  read_cr3(void);
 
 void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64 flags);
 void map_range(u64 virtual_address, u64 physical_address, u64 size, u64 flags);
