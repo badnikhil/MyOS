@@ -13,7 +13,19 @@
 #define XD_BIT_ON      (1ULL << 63)
 
 #define ENTRY(addr, flags) (((u64)(addr) & 0x000FFFFFFFFFF000ULL) | (flags))
-void InitPaging();
+
+// Physical load address of the kernel image (see buildbin: ld -Ttext 0x100000).
+#define KERNEL_PHYS_BASE   0x100000ULL
+
+#include <bootinfo.h>
+
+extern u64 pml4[ENTRIES];
+extern u64 pdpt[ENTRIES];
+extern u64 pd[ENTRIES];
+extern u64 pt[ENTRIES];
+
+void InitPaging(boot_info_t* boot);
+void bootstrap_paging(void);
 
 void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64 flags);
 void map_range(u64 virtual_address, u64 physical_address, u64 size, u64 flags);
