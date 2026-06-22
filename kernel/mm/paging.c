@@ -230,6 +230,42 @@ int vm_range_lookup(u64 addr, u64* out_flags){
     return 0;
 }
 
+// ---- ioremap: map physical MMIO into a dedicated kernel VA window ----
+// We carve MMIO virtual addresses out of a high, otherwise-unused canonical
+// region and bump-allocate within it.  Cache is disabled (PCD|PWT) so device
+// registers are not cached.  iounmap() tears the mapping down but does not
+// reclaim VA space (simple bump allocator — fine for a small fixed set of
+// device windows).
+#define IOREMAP_BASE  0xFFFFC00000000000ULL
+#define IOREMAP_END   0xFFFFC00040000000ULL   // 1GB window
+static u64 ioremap_next = IOREMAP_BASE;
+
+void* ioremap(u64 phys_addr, u64 size){
+    u64 page_off = phys_addr & 0xFFFULL;
+    u64 base     = phys_addr & ~0xFFFULL;
+    u64 mapped   = (size + page_off + 0xFFFULL) & ~0xFFFULL;
+
+    if (ioremap_next + mapped > IOREMAP_END) return (void*)0;  // window exhausted
+
+    u64 va = ioremap_next;
+    ioremap_next += mapped;
+
+    // NOTE: NX (XD_BIT_ON) is intentionally NOT set here — EFER.NXE is not
+    // enabled until step 8.  Setting bit 63 before NXE is on triggers a
+    // reserved-bit #PF on access.  Step 8 makes MMIO/data NX once NXE is live.
+    map_range(va, base, mapped, PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON);
+
+    return (void*)(va + page_off);
+}
+
+void iounmap(void* virtual_address, u64 size){
+    u64 va   = (u64)virtual_address & ~0xFFFULL;
+    u64 off  = (u64)virtual_address & 0xFFFULL;
+    u64 span = (size + off + 0xFFFULL) & ~0xFFFULL;
+    for (u64 a = va; a < va + span; a += 0x1000)
+        unmap_page(a);
+}
+
 void map_range(u64 virtual_address, u64 physical_address, u64 size_in_bytes, u64 flags){
     // align  to page 
     u64 vaddr = virtual_address & ~0xFFFULL;

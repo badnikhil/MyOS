@@ -16,13 +16,10 @@ void read_apic_base(){
         wrmsr(IA32_APIC_BASE_MSR, apic_base_msr);
     }
 
-    lapic_base = (volatile u32 *)(apic_base_msr & 0xFFFFF000);
-   map_range(
-    lapic_base,
-    lapic_base,
-    0x1000,
-    PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON
-);
+    u64 lapic_phys = apic_base_msr & 0xFFFFF000;
+    // Map the Local APIC MMIO page through the ioremap window (cache-disabled)
+    // and use the returned kernel virtual address for all register accesses.
+    lapic_base = (volatile u32 *)ioremap(lapic_phys, 0x1000);
 }
 
 void apic_init(void){

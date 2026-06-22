@@ -38,6 +38,11 @@ void unmap_page(u64 virtual_address);
 void invlpg(u64 virtual_address);
 void flush_tlb_all(void);
 
+// ioremap: map a physical MMIO region into a dedicated cache-disabled kernel
+// VA window and return the mapped virtual address (NULL if the window is full).
+void* ioremap(u64 phys_addr, u64 size);
+void  iounmap(void* virtual_address, u64 size);
+
 // Demand-paging range registry (see paging.c).
 void vm_register_range(u64 start, u64 end, u64 flags);
 int  vm_range_lookup(u64 addr, u64* out_flags);
