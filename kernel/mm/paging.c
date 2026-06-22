@@ -115,6 +115,34 @@ u64 read_cr3(void){
     return v;
 }
 
+// Map the ACPI RSDP and the UEFI runtime-services regions so firmware tables
+// stay reachable after the CR3 switch.
+//   * RSDP: small structure at boot->acpi.rsdp; map 2 pages around it
+//     (RW, NX — it is data we only read).
+//   * Runtime services: identity-map every EfiRuntimeServicesCode (executable)
+//     and EfiRuntimeServicesData (RW+NX) descriptor from the UEFI memory map,
+//     regardless of MAP_EAGER_LIMIT (these regions often live in high RAM).
+void map_acpi_and_runtime(boot_info_t* boot){
+    u64 rsdp = boot->acpi.rsdp;
+    if (rsdp){
+        u64 base = rsdp & ~0xFFFULL;
+        map_range(base, base, 2 * 0x1000, PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);
+    }
+
+    boot_memory_map_t* mm = &boot->memory_map;
+    struct memory_descriptor* desc = (struct memory_descriptor*) mm->map;
+    for(u64 i = 0 ; i < mm->map_size ; i += mm->desc_size){
+        struct memory_descriptor* d = (struct memory_descriptor*)((u8*)desc + i);
+        if (d->no_of_pages == 0) continue;
+        u64 begin = d->phy_addr_begin;
+        u64 size  = d->no_of_pages * 0x1000;
+        if (d->type == EfiRuntimeServicesCode)
+            map_range(begin, begin, size, PRESENT_BIT_ON | RW_BIT_ON);             // executable
+        else if (d->type == EfiRuntimeServicesData)
+            map_range(begin, begin, size, PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON); // data, NX
+    }
+}
+
 void InitPaging(boot_info_t* boot){
     // Enable EFER.NXE FIRST so the mappings built below may set the NX bit.
     enable_nx();
@@ -126,6 +154,7 @@ void InitPaging(boot_info_t* boot){
     init_memory_map(&boot->memory_map);
     bootstrap_paging();
     map_framebuffer(boot);
+    map_acpi_and_runtime(boot);
     install_recursive_map();
 
     // Install our kernel PML4.  This is safe ONLY because the steps above have

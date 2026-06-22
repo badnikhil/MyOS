@@ -46,6 +46,9 @@ void  iounmap(void* virtual_address, u64 size);
 // Enable EFER.NXE (must precede any PTE that sets the NX bit).
 void enable_nx(void);
 
+// Map ACPI RSDP + UEFI runtime-services regions (keep firmware tables live).
+void map_acpi_and_runtime(boot_info_t* boot);
+
 // Demand-paging range registry (see paging.c).
 void vm_register_range(u64 start, u64 end, u64 flags);
 int  vm_range_lookup(u64 addr, u64* out_flags);
