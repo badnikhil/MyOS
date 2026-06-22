@@ -118,22 +118,23 @@ void init_memory_map(boot_memory_map_t* memory_map) {
             d_size = MAP_EAGER_LIMIT - d_begin;
         u64 d_end = d_begin + d_size;
 
-        // Map the part overlapping the kernel window as executable (no NX);
-        // everything else as RW+NX data.
+        // Map the part overlapping the kernel window as executable (no NX) at
+        // 4KB (fine-grained); everything else as RW+NX data using 2MB huge
+        // pages to cut page-table memory (one PD entry per 2MB vs 512 PTEs).
         u64 ov_begin = d_begin > kwin_begin ? d_begin : kwin_begin;
         u64 ov_end   = d_end   < kwin_end   ? d_end   : kwin_end;
         if (ov_begin < ov_end){
             if (d_begin < ov_begin)
-                map_range(d_begin, d_begin, ov_begin - d_begin,
+                map_range_2mb(d_begin, d_begin, ov_begin - d_begin,
                           PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);
             map_range(ov_begin, ov_begin, ov_end - ov_begin,
-                      PRESENT_BIT_ON | RW_BIT_ON);            // kernel: executable
+                      PRESENT_BIT_ON | RW_BIT_ON);            // kernel: executable, 4KB
             if (ov_end < d_end)
-                map_range(ov_end, ov_end, d_end - ov_end,
+                map_range_2mb(ov_end, ov_end, d_end - ov_end,
                           PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);
         } else {
-            map_range(d_begin, d_begin, d_size,
-                      PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);  // data: NX
+            map_range_2mb(d_begin, d_begin, d_size,
+                      PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);  // bulk RAM: 2MB, NX
         }
         }
 

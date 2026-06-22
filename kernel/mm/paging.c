@@ -143,6 +143,81 @@ void map_acpi_and_runtime(boot_info_t* boot){
     }
 }
 
+// ---- 2MB huge-page mapping ----
+#define HUGE_2MB 0x200000ULL
+// Map a single 2MB page by writing a PD entry with the PS (page-size) bit set,
+// so the PD entry maps 2MB directly (no PT level).  va/pa must be 2MB-aligned.
+// This saves one page-table frame per 2MB versus 4KB mapping (512 PTEs -> 0).
+void map_page_2mb(u64 virtual_address, u64 physical_address, u64 flags){
+    u64 pml4_index = (virtual_address >> 39) & 0x1FF;
+    u64 pdpt_index = (virtual_address >> 30) & 0x1FF;
+    u64 pd_index   = (virtual_address >> 21) & 0x1FF;
+
+    u64* pdpt_ptr;
+    u64* pd_ptr;
+
+    if (!(pml4[pml4_index] & PRESENT_BIT_ON)){
+        u64 frame = allocate_frame();
+        pdpt_ptr = (u64*)frame;
+        for (int i = 0; i < ENTRIES; i++) pdpt_ptr[i] = 0;
+        pml4[pml4_index] = ENTRY(frame, PRESENT_BIT_ON | RW_BIT_ON);
+    } else {
+        pdpt_ptr = (u64*)(pml4[pml4_index] & 0x000FFFFFFFFFF000ULL);
+    }
+
+    if (!(pdpt_ptr[pdpt_index] & PRESENT_BIT_ON)){
+        u64 frame = allocate_frame();
+        pd_ptr = (u64*)frame;
+        for (int i = 0; i < ENTRIES; i++) pd_ptr[i] = 0;
+        pdpt_ptr[pdpt_index] = ENTRY(frame, PRESENT_BIT_ON | RW_BIT_ON);
+    } else {
+        pd_ptr = (u64*)(pdpt_ptr[pdpt_index] & 0x000FFFFFFFFFF000ULL);
+    }
+
+    // PD entry maps the 2MB page directly (PS bit set).  The address keeps its
+    // low 21 bits clear (2MB-aligned); ENTRY's mask is 4KB-granular which is a
+    // superset, so a 2MB-aligned address passes through unchanged.
+    //
+    // Safety: if this PD slot already points to a 4KB page table (present, no
+    // PS), do NOT clobber it with a huge page — that would orphan the PT and
+    // confuse any 4KB walker.  Fall back to mapping the 2MB span as 512 4KB
+    // pages instead.  This makes mixing 2MB bulk maps with earlier 4KB maps of
+    // overlapping PD slots safe.
+    if ((pd_ptr[pd_index] & PRESENT_BIT_ON) && !(pd_ptr[pd_index] & PS_BIT_ON)){
+        for (u64 off = 0; off < HUGE_2MB; off += 0x1000)
+            map_page_to_physical_address(virtual_address + off, physical_address + off, flags);
+        return;
+    }
+
+    pd_ptr[pd_index] = ENTRY(physical_address, flags | PRESENT_BIT_ON | PS_BIT_ON);
+    invlpg(virtual_address);
+}
+
+// Map a range using 2MB huge pages.  Any leading/trailing sub-2MB or
+// non-2MB-aligned remainder is mapped at 4KB granularity so arbitrary
+// ranges are handled correctly.
+void map_range_2mb(u64 virtual_address, u64 physical_address, u64 size_in_bytes, u64 flags){
+    u64 vaddr = virtual_address & ~0xFFFULL;
+    u64 paddr = physical_address & ~0xFFFULL;
+    u64 end   = virtual_address + size_in_bytes;
+
+    // 4KB until 2MB-aligned.
+    while (vaddr < end && (vaddr & (HUGE_2MB - 1))){
+        map_page_to_physical_address(vaddr, paddr, flags);
+        vaddr += 0x1000; paddr += 0x1000;
+    }
+    // 2MB huge pages for the aligned bulk.
+    while (vaddr + HUGE_2MB <= end){
+        map_page_2mb(vaddr, paddr, flags);
+        vaddr += HUGE_2MB; paddr += HUGE_2MB;
+    }
+    // 4KB for the trailing remainder.
+    while (vaddr < end){
+        map_page_to_physical_address(vaddr, paddr, flags);
+        vaddr += 0x1000; paddr += 0x1000;
+    }
+}
+
 void InitPaging(boot_info_t* boot){
     // Enable EFER.NXE FIRST so the mappings built below may set the NX bit.
     enable_nx();
@@ -207,7 +282,7 @@ void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64
         pd_ptr = (u64*)(pdpt_ptr[pdpt_index] & 0x000FFFFFFFFFF000ULL);
         }
 
-    // PD --> PT 
+    // PD --> PT
 
     if (!(pd_ptr[pd_index] & PRESENT_BIT_ON)){
         u64 frame = allocate_frame();
@@ -216,6 +291,19 @@ void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64
         for (int i = 0; i < 512; i++)
             pt_ptr[i] = 0;
 
+        pd_ptr[pd_index] = ENTRY(frame, PRESENT_BIT_ON | RW_BIT_ON);
+        }
+    else if (pd_ptr[pd_index] & PS_BIT_ON){
+        // Existing 2MB huge page in this slot.  Split it into a 4KB PT so this
+        // fine-grained mapping can coexist, preserving the huge page's flags
+        // and physical base for the other 511 pages.
+        u64 huge = pd_ptr[pd_index];
+        u64 huge_phys  = huge & 0x000FFFFFFE00000ULL;     // 2MB-aligned base
+        u64 huge_flags = huge & (PRESENT_BIT_ON|RW_BIT_ON|US_BIT_ON|PWT_BIT_ON|PCD_BIT_ON|XD_BIT_ON);
+        u64 frame = allocate_frame();
+        pt_ptr = (u64*)frame;
+        for (int i = 0; i < 512; i++)
+            pt_ptr[i] = ENTRY(huge_phys + (u64)i * 0x1000, huge_flags);
         pd_ptr[pd_index] = ENTRY(frame, PRESENT_BIT_ON | RW_BIT_ON);
         }
     else{
