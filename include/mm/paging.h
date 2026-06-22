@@ -32,6 +32,11 @@ u64  read_cr3(void);
 
 void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64 flags);
 void map_range(u64 virtual_address, u64 physical_address, u64 size, u64 flags);
+void unmap_page(u64 virtual_address);
+
+// TLB invalidation.
+void invlpg(u64 virtual_address);
+void flush_tlb_all(void);
 
 // Demand-paging range registry (see paging.c).
 void vm_register_range(u64 start, u64 end, u64 flags);

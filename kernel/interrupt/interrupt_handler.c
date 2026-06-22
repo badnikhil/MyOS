@@ -107,8 +107,8 @@ void handle_PF(u64 cr2, u64 err){
         u64 frame = allocate_frame();
         if (frame != (u64)-1){
             u64 page = cr2 & ~0xFFFULL;
+            // map_page_to_physical_address already invlpg's the page.
             map_page_to_physical_address(page, frame, flags | PRESENT_BIT_ON);
-            __asm__ volatile ("invlpg (%0)" : : "r"(page) : "memory");
             return;   // retry faulting instruction
         }
         print_string("PF: out of frames for demand page\n");

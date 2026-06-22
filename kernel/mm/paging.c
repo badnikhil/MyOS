@@ -12,6 +12,21 @@ __attribute__((aligned(4096))) u64 pt[ENTRIES] = {0};
 
 extern void init_memory_map(boot_memory_map_t* boot); // Forward declaration to fix warning
 
+// ---- TLB invalidation ----
+// Invalidate a single page's TLB entry. Cheaper than a full flush; use after
+// changing the mapping of one page.
+void invlpg(u64 virtual_address){
+    __asm__ volatile ("invlpg (%0)" : : "r"(virtual_address) : "memory");
+}
+
+// Full TLB flush by reloading CR3 (drops all non-global entries). Use after
+// bulk mapping changes or when many pages changed at once.
+void flush_tlb_all(void){
+    u64 cr3v;
+    __asm__ volatile ("mov %%cr3, %0" : "=r"(cr3v));
+    __asm__ volatile ("mov %0, %%cr3" : : "r"(cr3v) : "memory");
+}
+
 // We bootstrap-map a generous window around the kernel's physical load base
 // (KERNEL_PHYS_BASE, from paging.h) so the running code, .data/.bss and the
 // 64KB stack survive the CR3 switch even if the UEFI map's loader region is
@@ -159,6 +174,29 @@ void map_page_to_physical_address(u64 virtual_address, u64 physical_address, u64
     // PT --> PAGE
 
     pt_ptr[pt_index] = ENTRY(physical_address, flags | PRESENT_BIT_ON);
+
+    // Flush the stale TLB entry for this page so the new mapping takes effect.
+    invlpg(virtual_address);
+}
+
+// Tear down a single 4KB mapping (clear its PTE) and flush its TLB entry.
+// No-op if any intermediate table is absent.
+void unmap_page(u64 virtual_address){
+    u64 pml4_index = (virtual_address >> 39) & 0x1FF;
+    u64 pdpt_index = (virtual_address >> 30) & 0x1FF;
+    u64 pd_index   = (virtual_address >> 21) & 0x1FF;
+    u64 pt_index   = (virtual_address >> 12) & 0x1FF;
+
+    if (!(pml4[pml4_index] & PRESENT_BIT_ON)) return;
+    u64* pdpt_ptr = (u64*)(pml4[pml4_index] & 0x000FFFFFFFFFF000ULL);
+    if (!(pdpt_ptr[pdpt_index] & PRESENT_BIT_ON)) return;
+    u64* pd_ptr = (u64*)(pdpt_ptr[pdpt_index] & 0x000FFFFFFFFFF000ULL);
+    if (!(pd_ptr[pd_index] & PRESENT_BIT_ON)) return;
+    if (pd_ptr[pd_index] & PS_BIT_ON) return;   // 2MB huge page: not a 4KB PT
+    u64* pt_ptr = (u64*)(pd_ptr[pd_index] & 0x000FFFFFFFFFF000ULL);
+
+    pt_ptr[pt_index] = 0;
+    invlpg(virtual_address);
 }
 
 // ---- Demand-paging range registry ----
