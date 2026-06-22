@@ -12,6 +12,23 @@ __attribute__((aligned(4096))) u64 pt[ENTRIES] = {0};
 
 extern void init_memory_map(boot_memory_map_t* boot); // Forward declaration to fix warning
 
+// ---- NX / W^X support ----
+#define IA32_EFER_MSR  0xC0000080ULL
+#define EFER_NXE_BIT   (1ULL << 11)
+extern u64 rdmsr(u32 msr);
+extern void wrmsr(u32 msr, u64 value);
+
+// Enable EFER.NXE so the NX (XD) bit (1<<63) is honored in page-table entries.
+// MUST be called before any PTE sets the NX bit, otherwise the NX bit is a
+// reserved bit and faults on access.
+void enable_nx(void){
+    u64 efer = rdmsr(IA32_EFER_MSR);
+    if (!(efer & EFER_NXE_BIT)){
+        efer |= EFER_NXE_BIT;
+        wrmsr(IA32_EFER_MSR, efer);
+    }
+}
+
 // ---- TLB invalidation ----
 // Invalidate a single page's TLB entry. Cheaper than a full flush; use after
 // changing the mapping of one page.
@@ -69,7 +86,9 @@ void map_framebuffer(boot_info_t* boot){
     u64 base = boot->framebuffer.base;
     u64 size = boot->framebuffer.size;
     if (!base || !size) return;
-    map_range(base, base, size, PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON);
+    // Framebuffer is data: RW, cache-disabled, and NX (no code fetch from it).
+    map_range(base, base, size,
+              PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON | XD_BIT_ON);
 }
 
 // Recursive PML4 self-map: point the last PML4 slot (511) at the PML4 itself.
@@ -97,6 +116,9 @@ u64 read_cr3(void){
 }
 
 void InitPaging(boot_info_t* boot){
+    // Enable EFER.NXE FIRST so the mappings built below may set the NX bit.
+    enable_nx();
+
     // Order matters: init_memory_map() initializes the frame allocator and
     // frees conventional RAM into it, then identity-maps low RAM.  Only after
     // that does the allocator have frames to satisfy bootstrap_paging()'s
@@ -250,10 +272,10 @@ void* ioremap(u64 phys_addr, u64 size){
     u64 va = ioremap_next;
     ioremap_next += mapped;
 
-    // NOTE: NX (XD_BIT_ON) is intentionally NOT set here — EFER.NXE is not
-    // enabled until step 8.  Setting bit 63 before NXE is on triggers a
-    // reserved-bit #PF on access.  Step 8 makes MMIO/data NX once NXE is live.
-    map_range(va, base, mapped, PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON);
+    // MMIO is data: RW, cache-disabled, and NX (EFER.NXE is enabled in
+    // InitPaging before any mapping that sets the NX bit).
+    map_range(va, base, mapped,
+              PRESENT_BIT_ON | RW_BIT_ON | PCD_BIT_ON | PWT_BIT_ON | XD_BIT_ON);
 
     return (void*)(va + page_off);
 }

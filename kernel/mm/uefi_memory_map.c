@@ -100,6 +100,14 @@ void init_memory_map(boot_memory_map_t* memory_map) {
     // them would exhaust the allocator on page tables.  Those are covered by
     // the explicit framebuffer map (step 2), ioremap (step 7), bulk 2MB
     // mapping (step 10) and demand paging (step 5).
+    // W^X: identity-mapped RAM is data -> map it RW+NX, EXCEPT the kernel image
+    // window (KERNEL_PHYS_BASE..+16MB) which holds code and must stay
+    // executable.  (Splitting the kernel image into RO .text vs RW+NX .data
+    // would need a linker script exporting section bounds; the build uses
+    // `ld --oformat binary -Ttext 0x100000` with no script, so the whole image
+    // window is kept executable+RW for now.)
+    u64 kwin_begin = KERNEL_PHYS_BASE;
+    u64 kwin_end   = KERNEL_PHYS_BASE + (16ULL << 20);
     for(u64 i = 0 ; i < memory_map->map_size ; i += memory_map->desc_size){
         struct memory_descriptor* curr_desc = (struct memory_descriptor*)((u8*)desc + i);
         if(curr_desc->no_of_pages == 0) continue;
@@ -108,7 +116,25 @@ void init_memory_map(boot_memory_map_t* memory_map) {
         if (d_begin >= MAP_EAGER_LIMIT) continue;
         if (d_begin + d_size > MAP_EAGER_LIMIT)
             d_size = MAP_EAGER_LIMIT - d_begin;
-        map_range(d_begin, d_begin, d_size, PRESENT_BIT_ON | RW_BIT_ON);
+        u64 d_end = d_begin + d_size;
+
+        // Map the part overlapping the kernel window as executable (no NX);
+        // everything else as RW+NX data.
+        u64 ov_begin = d_begin > kwin_begin ? d_begin : kwin_begin;
+        u64 ov_end   = d_end   < kwin_end   ? d_end   : kwin_end;
+        if (ov_begin < ov_end){
+            if (d_begin < ov_begin)
+                map_range(d_begin, d_begin, ov_begin - d_begin,
+                          PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);
+            map_range(ov_begin, ov_begin, ov_end - ov_begin,
+                      PRESENT_BIT_ON | RW_BIT_ON);            // kernel: executable
+            if (ov_end < d_end)
+                map_range(ov_end, ov_end, d_end - ov_end,
+                          PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);
+        } else {
+            map_range(d_begin, d_begin, d_size,
+                      PRESENT_BIT_ON | RW_BIT_ON | XD_BIT_ON);  // data: NX
+        }
         }
 
     }

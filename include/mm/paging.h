@@ -43,6 +43,9 @@ void flush_tlb_all(void);
 void* ioremap(u64 phys_addr, u64 size);
 void  iounmap(void* virtual_address, u64 size);
 
+// Enable EFER.NXE (must precede any PTE that sets the NX bit).
+void enable_nx(void);
+
 // Demand-paging range registry (see paging.c).
 void vm_register_range(u64 start, u64 end, u64 flags);
 int  vm_range_lookup(u64 addr, u64* out_flags);
