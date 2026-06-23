@@ -21,9 +21,23 @@ void init_memory_map(boot_memory_map_t* memory_map) {
 
     struct memory_descriptor* desc = (struct memory_descriptor*) memory_map->map;
     u64 max_address = 0;
-    //STEP 1: Calculate Max Addr
+    u64 desc_count = 0;          // DIAG
+    u64 conv_pages = 0;          // DIAG: total EfiConventionalMemory pages
+    //STEP 1: Calculate Max Addr.
+    // Bound the frame bitmap to USABLE RAM only: only EfiConventionalMemory
+    // (type 7) is ever managed by the allocator (it is exactly the set freed in
+    // PHASE A).  Including EfiMemoryMappedIO / reserved / high regions here
+    // inflates max_address to multi-GB on real firmware (GPU VRAM, above-4GB
+    // PCI window), which sizes the bitmap larger than any single conventional
+    // descriptor -> the "find bitmap region" loop finds nothing -> silent fail.
+    // MMIO frames are never allocate_frame()'d; device regions are mapped by
+    // their fixed physical address (framebuffer/ioremap/demand-paging), so the
+    // bitmap need not cover them.
     for(u64 i = 0 ; i < memory_map->map_size ; i += memory_map->desc_size){
         struct memory_descriptor* curr_desc = (struct memory_descriptor*)((u8*)desc + i);
+        desc_count++;            // DIAG
+        if(curr_desc->type != EfiConventionalMemory) continue;
+        conv_pages += curr_desc->no_of_pages;   // DIAG
         u64 end = curr_desc->phy_addr_begin + curr_desc->no_of_pages * PAGE_SIZE;
         if(end > max_address)max_address = end;
         }
@@ -50,9 +64,29 @@ void init_memory_map(boot_memory_map_t* memory_map) {
             }
         }
 
+    // DIAG: dump the bitmap-sizing inputs/outputs. Remove this whole block
+    // (everything between the DIAG markers) once the fix is confirmed on HW.
+    // DIAG-BEGIN
+    print_string("\n[mm] desc_count="); print_hex64(desc_count);
+    print_string(" conv_pages=");       print_hex64(conv_pages);
+    print_string(" maxRAM=");           print_hex64(max_address);
+    print_string("\n[mm] total_pages="); print_hex64(total_pages);
+    print_string(" bitmap_size=");       print_hex64(bitmap_size);
+    print_string(" req_pages=");         print_hex64(required_pages);
+    print_string(" bitmap_addr=");       print_hex64(bitmap_addr);
+    print_string("\n");
+    // DIAG-END
+
     if (bitmap_addr == 0) {
-        // panic
-        return;
+        // FATAL: no RAM region large enough to hold the frame bitmap. Be LOUD
+        // instead of silently returning (which would leave frame_bitmap=NULL /
+        // total_frames=0 and brick the kernel at the first allocate_frame()).
+        print_string("FATAL: no RAM region for frame bitmap\n");
+        print_string("  need bytes="); print_hex64(bitmap_size);
+        print_string(" pages=");        print_hex64(required_pages);
+        print_string(" maxRAM=");        print_hex64(max_address);
+        print_string("\n");
+        while(1) __asm__ volatile ("hlt");
         }
 
     // Init the bitmap (fill_bitmap marks EVERYTHING used, protects frame 0).
@@ -69,6 +103,12 @@ void init_memory_map(boot_memory_map_t* memory_map) {
         if(curr_desc->type == EfiConventionalMemory && curr_desc->no_of_pages)
             unset_memory(curr_desc->phy_addr_begin , curr_desc->no_of_pages );
         }
+
+    // DIAG: free frames after PHASE A. Should be large (~conv_pages minus the
+    // bitmap reservation); 0 means the allocator is still empty. DIAG-BEGIN
+    print_string("[mm] free_frames after PHASE A="); print_hex64(free_frame_count());
+    print_string("\n");
+    // DIAG-END
 
     // PHASE B — protect regions that must NOT be handed out as free frames:
     //   * the frame bitmap itself,

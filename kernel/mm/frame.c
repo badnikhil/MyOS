@@ -1,5 +1,5 @@
 #include <mm/frame.h>
-
+#include <kernel/console.h>
 static u64 *frame_bitmap;
 static u64 total_frames;
 
@@ -43,22 +43,29 @@ void clear_bitmap( ){
         frame_bitmap[i] = 0;
     }
 
+void fill_bitmap( ){
+    u64 bitmap_entries = (total_frames + 63) / 64;
+
+    for (u64 i = 0; i < bitmap_entries; i++)
+        frame_bitmap[i] = 0xFFFFFFFFFFFFFFFFULL;
+    }
 void frame_bitmap_init(u64 mem_size_bytes, u64 bitmap_address){
     total_frames = mem_size_bytes / FRAME_SIZE;
 
     frame_bitmap = (u64 *)bitmap_address;
 
-    clear_bitmap();
+    fill_bitmap();
 
     set_frame(0);   // protect null page
     }
+    
 
 u64 allocate_frame(){
     u64 frame = first_free_frame();
-
-    if (frame == (u64)-1)
+    if(frame == (u64)-1){
+        print_string("NoMOREFRAME");
         return (u64)-1;
-
+    }
     set_frame(frame);
     return frame * FRAME_SIZE;
     }
@@ -66,4 +73,14 @@ u64 allocate_frame(){
 void free_frame(u64 phys_addr){
     u64 frame = phys_addr / FRAME_SIZE;
     clear_frame(frame);
-    }   
+    }
+
+// DIAG helper: count free (clear) frames in [0, total_frames). Used by the
+// init_memory_map boot diagnostics to confirm the allocator was populated.
+u64 free_frame_count(void){
+    u64 free = 0;
+    for (u64 frame = 0; frame < total_frames; frame++)
+        if (!isFrameUsed(frame))
+            free++;
+    return free;
+    }
