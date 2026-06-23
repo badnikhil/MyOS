@@ -50,16 +50,27 @@ void init_memory_map(boot_memory_map_t* memory_map) {
     // align to page size
     bitmap_size = (bitmap_size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
 
-    // STEP 3: Find bitmap region
+    // STEP 3: Find bitmap region.
+    // Require the home region to start at/above 1 MiB and use an explicit
+    // found-flag.  Two reasons:
+    //   1. Address 0 is the "not found" sentinel below; a usable region BASED at
+    //      phys 0 (the legacy low-memory chunk, which on this firmware is the
+    //      first EfiConventionalMemory descriptor large enough) would be picked,
+    //      set bitmap_addr=0, and be misread as failure -> false FATAL.
+    //   2. The sub-1MiB area overlaps BIOS/EBDA/real-mode structures even when
+    //      marked usable; never park the frame bitmap there.
     u64 bitmap_addr = 0;
-    // we still do the division for safety
+    u8  found_bitmap = 0;
     u64 required_pages = (bitmap_size + PAGE_SIZE - 1) / PAGE_SIZE;
     for(u64 i = 0 ; i < memory_map->map_size ; i += memory_map->desc_size){
         struct memory_descriptor* curr_desc = (struct memory_descriptor*)((u8*)desc + i);
-        if(curr_desc->type == EfiConventionalMemory && curr_desc->no_of_pages >= required_pages){
+        if(curr_desc->type == EfiConventionalMemory
+           && curr_desc->phy_addr_begin >= 0x100000ULL
+           && curr_desc->no_of_pages >= required_pages){
             bitmap_addr = curr_desc->phy_addr_begin;
             curr_desc->phy_addr_begin += required_pages*PAGE_SIZE;
             curr_desc->no_of_pages -= required_pages;
+            found_bitmap = 1;
             break;
             }
         }
@@ -77,10 +88,11 @@ void init_memory_map(boot_memory_map_t* memory_map) {
     print_string("\n");
     // DIAG-END
 
-    if (bitmap_addr == 0) {
-        // FATAL: no RAM region large enough to hold the frame bitmap. Be LOUD
-        // instead of silently returning (which would leave frame_bitmap=NULL /
-        // total_frames=0 and brick the kernel at the first allocate_frame()).
+    if (!found_bitmap) {
+        // FATAL: no EfiConventionalMemory descriptor at/above 1 MiB is large
+        // enough to hold the frame bitmap. Be LOUD instead of silently returning
+        // (which would leave frame_bitmap=NULL / total_frames=0 and brick the
+        // kernel at the first allocate_frame()).
         print_string("FATAL: no RAM region for frame bitmap\n");
         print_string("  need bytes="); print_hex64(bitmap_size);
         print_string(" pages=");        print_hex64(required_pages);
