@@ -5,6 +5,7 @@
 #include<IO.h>
 #include<kernel/tty.h>
 #include<kernel/timer.h>
+#include <kernel/apic.h>
 static const char scancode_table[128] = {
     0,  27, '1','2','3','4','5','6','7','8','9','0','-','=', '\b',
     '\t', //this is for tab
@@ -41,12 +42,12 @@ char sc_to_ascii(u8 scancode) {
         if (scancode == 0xAA || scancode == 0xB6)
             shift = 0;
         return 0;
-    }
+        }
     //shift handling for capital letters
     if (scancode == 0x2A || scancode == 0x36) {
         shift = 1;
         return 0;
-    }
+        }
 
     if (scancode > 127)
         return 0;
@@ -58,12 +59,11 @@ char sc_to_ascii(u8 scancode) {
     }
 
 void handle_timer_irq( ){
+    // print_string("Tick ");
     increment_timer();
-    pic_send_eoi(2);
-}
+    }
 void handle_keyboard_irq( ) {
-    u8 c = inb(0x60);
-    pic_send_eoi(1);   
+    u8 c = inb(0x60);   
     c = sc_to_ascii(c);
     if(c)
     tty_feed(c);
@@ -71,20 +71,54 @@ void handle_keyboard_irq( ) {
     }  
 
 
+static u8 use_apic = 0;
+void interrupt_handler_use_apic(){
+    use_apic = 1;
+ }
+void nothing(){
+    print_string("SOMETHING IS WRONG WITH REGISTERS");
+    }  
+void xhci_handle(){
+    print_string("XHCI INTERRUPT FIRED\n");
+    apic_eoi();
+    } 
 void handle_interrupt(struct regs *r) {
-    // handle_keyboard_irq();
     switch(r->idt_vector){
         case 33 : handle_keyboard_irq();break;
         case 32 : handle_timer_irq();break;
-        // case 128 : handle_syscall(r);
+        case 64 : xhci_handle();break;
+        default : nothing();break;
         }
- 
+    switch(use_apic){
+        case 0 : pic_send_eoi(r->idt_vector - 32);break;
+        case 1 : apic_eoi(); break;
+        }
+}
+
+// Page-fault handler. Called from PF_ISR (arch/x86/IDT.asm) with:
+//   cr2 = faulting virtual address (CR2)
+//   err = CPU page-fault error code (bit0 P, bit1 W/R, bit2 U/S, ...)
+// For faults inside a registered demand-paging range we allocate a frame and
+// map it, then return so the faulting instruction is retried.  Any other fault
+// is fatal: we print CR2 + error code and halt.
+void handle_PF(u64 cr2, u64 err){
+    u64 flags;
+    if (vm_range_lookup(cr2, &flags)){
+        u64 frame = allocate_frame();
+        if (frame != (u64)-1){
+            u64 page = cr2 & ~0xFFFULL;
+            // map_page_to_physical_address already invlpg's the page.
+            map_page_to_physical_address(page, frame, flags | PRESENT_BIT_ON);
+            return;   // retry faulting instruction
+        }
+        print_string("PF: out of frames for demand page\n");
     }
-  
-#define PAGE_RW        0x2
-void handle_PF(u32 faulty_virtual_adress){
-    u32 allocated_frame = allocate_frame();
-    map_page_to_physical_address(faulty_virtual_adress , allocated_frame , PAGE_RW);
-    print_string("Page fault handled Successfully\n");
+
+    // Unhandled fault -> panic.
+    print_string("PANIC #PF CR2: ");
+    print_hex64(cr2);
+    print_string(" ERR: ");
+    print_hex64(err);
+    print_string("\n");
+    for(;;){ __asm__ volatile ("cli; hlt"); }
     }
- 

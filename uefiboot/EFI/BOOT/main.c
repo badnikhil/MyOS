@@ -65,13 +65,13 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
     // exists okay for my qemu its efi/boot/kernel.bin .. maybe for
     //  your efi parition its efi/myOS/kernel.bin 
     //  as i do in my own machine to boot into myOS
-Status = uefi_call_wrapper(Root->Open, 5,
-    Root,
-    &KernelFile,
-    L"\\EFI\\BOOT\\kernel.bin",
-    EFI_FILE_MODE_READ,
-    0
-);
+    Status = uefi_call_wrapper(Root->Open, 5,
+        Root,
+        &KernelFile,
+        L"\\EFI\\myOS\\kernel.bin",
+        EFI_FILE_MODE_READ,
+        0
+    );
 
     if (EFI_ERROR(Status)) {
         Print(L"Failed to open kernel file: %r\r\n", Status);
@@ -141,7 +141,7 @@ Status = uefi_call_wrapper(Root->Open, 5,
         
         EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info = GOP->Mode->Info;
 
-        BootInfo.framebuffer.base   = (void *)GOP->Mode->FrameBufferBase;
+        BootInfo.framebuffer.base   = (u64)GOP->Mode->FrameBufferBase;
         BootInfo.framebuffer.size   = GOP->Mode->FrameBufferSize;
         BootInfo.framebuffer.width  = info->HorizontalResolution;
         BootInfo.framebuffer.height = info->VerticalResolution;
@@ -295,7 +295,7 @@ Status = uefi_call_wrapper(Root->Open, 5,
         }
     }
 
-   //finally owning the machine and handling control to my kernel
+   // Finally owning the machine and handling control to my kernel
     typedef void (*kernel_entry_t)(boot_info_t *);
     kernel_entry_t KernelEntry = (kernel_entry_t)KernelAddress;
     KernelEntry(&BootInfo);

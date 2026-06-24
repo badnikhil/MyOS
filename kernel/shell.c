@@ -21,7 +21,7 @@ void process_command(u8 *cmd ){
     
    }  
 void run_shell(){
-    print_string("MyOS> ");
+    print_string("MyOS>");
     while(1){
             u8* succ = tty_get_input();
             process_command(succ);

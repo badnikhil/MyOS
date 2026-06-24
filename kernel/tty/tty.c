@@ -5,16 +5,6 @@
 static volatile u8 buffer[128];
 static volatile u8 idx = 0;
 u8 is_line_ready = 0;
-void tty_feed(u8 c){
-    if(c == '\n'){
-        is_line_ready = 1;
-        print_string(&c);
-        return;
-        }
-    buffer[idx++] = c;
-    print_string(&c);
-    }
-
 u8* tty_get_input(){ 
     while(!is_line_ready){
         asm volatile("hlt"); 
@@ -26,3 +16,13 @@ u8* tty_get_input(){
     return ret;
 
 }
+void tty_feed(u8 c){
+    if(c == '\n'){
+        is_line_ready = 1;
+        print_string(&c);
+        return;
+        }
+    buffer[idx++] = c;
+    print_string(&c);
+    }
+

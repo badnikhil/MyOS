@@ -27,3 +27,11 @@ pic_init:
     out 0xA1, al        ; slave PIC mask
 
     ret
+pic_disable:
+    ; Mask all IRQs on master PIC (IRQ0–IRQ7)
+    mov al, 0xFF
+    out 0x21, al
+
+    ; Mask all IRQs on slave PIC (IRQ8–IRQ15)
+    out 0xA1, al
+    ret
